@@ -1,0 +1,32 @@
+{
+  "name": "Suite dispositif",
+  "b_random": false,
+  "tests": [
+    {
+      "name": "Démarrage puis mesure",
+      "expect_timeout_ms": 500,
+      "steps": [
+        ["reset_expect"],
+        ["receive", "config", { "interval_ms": 100, "threshold": 30.5 }],
+        ["receive", "cmd", { "value": "START" }],
+        ["elapse_ms", 100],
+        ["expect_send", "state", { "status": "RUNNING", "uptime_ms": 100 }],
+        ["expect_send", "measure", { "temperature": [">=", 20.0], "humidity": ["<", 80] }],
+        ["reset_expect"],
+        ["elapse_ms", 100],
+        ["expect_not_send", "alarm"]
+      ]
+    },
+    {
+      "name": "Seuil dépassé",
+      "steps": [
+        ["reset_expect"],
+        ["receive", "config", { "interval_ms": 100, "threshold": 30.5 }],
+        ["receive", "cmd", { "value": "START" }],
+        ["elapse_ms", 200],
+        ["expect_send", "alarm", { "level": "WARN", "code": 42 }],
+        ["expect_send", "state", { "status": "CLOSED" }]
+      ]
+    }
+  ]
+}

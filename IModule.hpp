@@ -52,6 +52,7 @@ class IModule
 public:
     virtual ~IModule() = default;
     virtual void setLogic(IModuleLogic* logic) = 0;
+    virtual void Start() = 0;
 
     virtual void send(state message) = 0;
     virtual void send(measure message) = 0;

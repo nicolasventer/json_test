@@ -1,0 +1,17 @@
+-xc++
+-std=c++17
+-Wall
+-Wextra
+-Wpedantic
+-Wconversion
+-Wpadded
+-Wshadow
+-Wsign-conversion
+-Wswitch-enum
+-Wnull-dereference
+-Wno-gnu-zero-variadic-macro-arguments
+-Wno-c2y-extensions
+-Isrc
+-I.
+-Ijwrap
+-Ibuild/_deps/googletest-src/googletest/include

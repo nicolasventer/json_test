@@ -23,7 +23,6 @@ enable_testing()
 
 add_library(json_test
   src/json_test.cpp
-  src/module_json.cpp
   src/device_logic.cpp
   src/test_module.cpp
 )
@@ -33,7 +32,6 @@ target_include_directories(json_test
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/jwrap
 )
 
 add_executable(json_test_app

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ostream>
 #include <string>
 
 enum EStateStatus
@@ -9,12 +10,41 @@ enum EStateStatus
     CLOSED
 };
 
+inline std::ostream& operator<<(std::ostream& os, EStateStatus value)
+{
+    switch (value)
+    {
+        case INIT:
+            return os << "INIT";
+        case RUNNING:
+            return os << "RUNNING";
+        case CLOSED:
+            return os << "CLOSED";
+    }
+    return os;
+}
+
+
 enum EAlarmLevel
 {
     INFO,
     WARN,
     FAULT
 };
+
+inline std::ostream& operator<<(std::ostream& os, EAlarmLevel value)
+{
+    switch (value)
+    {
+        case INFO:
+            return os << "INFO";
+        case WARN:
+            return os << "WARN";
+        case FAULT:
+            return os << "FAULT";
+    }
+    return os;
+}
 
 struct cmd
 {

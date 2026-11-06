@@ -13,5 +13,4 @@
 -Wno-c2y-extensions
 -Isrc
 -I.
--Ijwrap
 -Ibuild/_deps/googletest-src/googletest/include

@@ -26,7 +26,6 @@ add_library(json_test
   src/module_json.cpp
   src/device_logic.cpp
   src/test_module.cpp
-  src/suite_runner.cpp
 )
 
 target_include_directories(json_test

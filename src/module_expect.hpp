@@ -1,26 +1,41 @@
 #pragma once
 
-#include "jwrap/jwrap.hpp"
-
-#include <cstddef>
+#include <algorithm>
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
 namespace json_test {
 
-class IModuleExpect {
+template <typename... Args>
+class ModuleExpect {
  public:
-  virtual ~IModuleExpect() = default;
-
-  virtual void resetExpect() = 0;
-
   struct Sent {
     std::string topic;
-    jw::Value data;
+    std::variant<Args...> data;
   };
 
-  virtual const std::vector<Sent>& sent() const = 0;
-  virtual std::size_t resetIndex() const = 0;
+  void resetExpect() { sent_.clear(); }
+
+  const std::vector<Sent>& getSent() const { return sent_; }
+
+  template <class T>
+  void record(std::string topic, T message) {
+    sent_.push_back(Sent{std::move(topic), std::move(message)});
+  }
+
+  template <class T>
+  const T* rFindSend(const char* topic) const {
+    const auto itEnd = sent_.rend();
+    const auto it = std::find_if(sent_.rbegin(), itEnd, [&](const Sent& message) {
+      return message.topic == topic && std::holds_alternative<T>(message.data);
+    });
+    return it != itEnd ? &std::get<T>(it->data) : nullptr;
+  }
+
+ private:
+  std::vector<Sent> sent_;
 };
 
 }  // namespace json_test

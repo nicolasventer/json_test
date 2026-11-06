@@ -1,6 +1,5 @@
 {
   "name": "Suite dispositif",
-  "b_random": false,
   "tests": [
     {
       "name": "Démarrage du dispositif",

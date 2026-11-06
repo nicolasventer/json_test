@@ -9,7 +9,6 @@ Un fichier décrit une suite de tests. Chaque test contient une liste ordonnée 
 ```json
 {
   "name": "Suite de démarrage et d'arrêt",
-  "b_random": true,
   "tests": [
     {
       "name": "Démarrage du dispositif",
@@ -23,7 +22,6 @@ Un fichier décrit une suite de tests. Chaque test contient une liste ordonnée 
     },
     {
       "name": "Absence de message d'erreur",
-      "skip": "En attente de la prise en charge du scénario",
       "steps": [
         ["reset_expect"],
         ["receive", "cmd", { "value": "START" }],
@@ -45,9 +43,6 @@ La racine du document est une suite de tests contenant les champs suivants :
 | --- | --- | --- | --- |
 | `name` | chaîne | Oui | Nom de la suite de tests. |
 | `tests` | tableau | Oui | Liste des tests de la suite. |
-| `b_random` | booléen | Oui | Si `true`, exécute les tests dans un ordre aléatoire afin de vérifier qu'ils sont indépendants de leur ordre d'exécution. Si `false`, conserve leur ordre dans le fichier. |
-
-`b_random` doit toujours être fourni explicitement.
 
 ### 2.2 Champs d'un test
 
@@ -58,7 +53,6 @@ Chaque élément de `tests` est un objet comportant les champs suivants :
 | `name` | chaîne | Oui | Nom du test. |
 | `steps` | tableau | Oui | Liste ordonnée des étapes du test. |
 | `expect_timeout_ms` | entier positif | Non | Timeout en millisecondes utilisé par `expect_send` et `expect_not_send`. Valeur par défaut : `500`. |
-| `skip` | booléen ou chaîne | Non | `true` ignore le test ; une chaîne ignore le test et en indique la raison ; `false` ou l'absence du champ permet son exécution. |
 
 Le champ `expect_timeout_ms` s'applique aux vérifications du test concerné. Il ne modifie pas le temps virtuel contrôlé par `elapse_ms`.
 
@@ -204,7 +198,7 @@ Syntaxe :
 Définit un nouveau point de référence pour `expect_not_send`. Cette opération :
 
 - Ne réinitialise pas l'état du système.
-- N'efface pas l'historique des messages.
+- Efface les envois enregistrés.
 - Ne fait pas avancer le temps virtuel et ne le remet pas à zéro.
 
 Exemple :
@@ -227,7 +221,9 @@ La vérification négative ignore les messages envoyés avant le dernier `reset_
 
 ## 8. Règles d'exécution
 
-1. Les étapes d'un test sont exécutées dans l'ordre où elles apparaissent.
+Le fichier JSON décrit les tests à générer. Il n'est pas lu pendant l'exécution : le code exécuté est le C++ produit par le générateur. Ce C++ applique les règles suivantes :
+
+1. Les étapes d'un test sont traduites dans l'ordre où elles apparaissent.
 2. Chaque étape se termine avant le début de la suivante.
 3. Une vérification qui échoue interrompt le test.
 4. `receive` simule la réception de données par le système.
@@ -235,16 +231,13 @@ La vérification négative ignore les messages envoyés avant le dernier `reset_
 6. `expect_send` attend au maximum le délai `expect_timeout_ms` pour observer un message correspondant.
 7. `expect_not_send` vérifie l'absence de message pendant ce même délai.
 8. Les vérifications négatives ne prennent en compte que les messages envoyés depuis le dernier `reset_expect`.
-9. Si `skip` vaut `true` ou contient une raison sous forme de chaîne, le test est ignoré.
-10. Si `b_random` vaut `true`, l'ordre des tests de la suite est randomisé ; les tests doivent donc être conçus pour réussir indépendamment de cet ordre.
-11. Le moteur de test indique le test et l'étape en échec, les données attendues et réelles lorsqu'elles sont disponibles, ainsi que la raison de l'échec.
+9. Le test généré indique le test et l'étape en échec, les données attendues et réelles lorsqu'elles sont disponibles, ainsi que la raison de l'échec.
 
 ## 9. Exemple complet
 
 ```json
 {
   "name": "Suite de démarrage et d'arrêt",
-  "b_random": true,
   "tests": [
     {
       "name": "Démarrage du dispositif",
@@ -258,7 +251,6 @@ La vérification négative ignore les messages envoyés avant le dernier `reset_
     },
     {
       "name": "Arrêt du dispositif",
-      "skip": false,
       "steps": [
         ["reset_expect"],
         ["receive", "cmd", { "value": "STOP" }],
@@ -272,6 +264,6 @@ La vérification négative ignore les messages envoyés avant le dernier `reset_
 
 ## 10. Notes d'implémentation
 
-Le moteur doit valider la structure JSON avant l'exécution et rejeter les champs obligatoires absents, les mots-clés inconnus, les nombres d'arguments invalides, les opérateurs de comparaison invalides et les types de valeurs incompatibles.
+Le générateur valide la structure JSON et rejette les champs obligatoires absents, les mots-clés inconnus, les nombres d'arguments invalides, les opérateurs de comparaison invalides et les types de valeurs incompatibles. Le JSON n'est pas interprété à l'exécution : les tests exécutés sont le C++ produit.
 
-Le timeout des vérifications est un délai de synchronisation en temps réel, distinct du temps virtuel. Le moteur doit traiter les événements à temps virtuel égal de façon déterministe. Les tests doivent être indépendants les uns des autres, notamment lorsque `b_random` est activé.
+Le timeout des vérifications est un délai de synchronisation en temps réel, distinct du temps virtuel. Le code généré traite les événements à temps virtuel égal de façon déterministe.

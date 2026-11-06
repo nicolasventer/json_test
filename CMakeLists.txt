@@ -25,6 +25,7 @@ add_library(json_test
   src/json_test.cpp
   src/device_logic.cpp
   src/test_module.cpp
+  Timer.cpp
 )
 
 target_include_directories(json_test

@@ -2,7 +2,7 @@
 
 Projet C++17 qui simule un dispositif et vérifie les messages qu'il émet.
 
-`DeviceLogic` implémente la logique du dispositif derrière `IModule`. À la réception d'une `config` puis d'une commande `START`, chaque tick du minuteur envoie des messages `state`, `measure` ou `alarm`. `TestModule` enregistre ces envois. `Timer` fait avancer un temps virtuel, sans attendre le temps réel.
+`DeviceLogic` implémente la logique du dispositif derrière `IModule`. À la réception d'une `config` puis d'une commande `START`, chaque tick du minuteur envoie des messages `state`, `measure` ou `alarm`. `TestModule` enregistre ces envois. `Timer` fait avancer un temps virtuel, sans attendre le temps réel. Son usage est décrit dans [`Timer.md`](Timer.md).
 
 [`specification_dsl_suite.md`](specification_dsl_suite.md) décrit un DSL de tests au format JSON. [`example1.json`](example1.json) est une suite d'exemple pour ce DSL. Les tests du dépôt sont écrits en C++ avec GoogleTest et rejouent ce scénario : aucun programme ne charge le fichier JSON.
 

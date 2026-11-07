@@ -3,14 +3,34 @@
 #include <chrono>
 #include <cstddef>
 #include <functional>
-#include <map>
 #include <memory>
 #include <vector>
 
 class Timer
 {
 public:
+    class TaskHandle
+    {
+    public:
+        ~TaskHandle();
+        void release() const;
+
+        TaskHandle(const TaskHandle&) = delete;
+        TaskHandle& operator=(const TaskHandle&) = delete;
+        TaskHandle(TaskHandle&&) = delete;
+        TaskHandle& operator=(TaskHandle&&) = delete;
+
+    private:
+        friend class Timer;
+        TaskHandle(Timer& timer, std::size_t id);
+
+        mutable Timer* timer_ = nullptr;
+        mutable std::size_t id_ = 0;
+    };
+
     Timer() = default;
+    ~Timer();
+
     Timer(const Timer&) = delete;
     Timer& operator=(const Timer&) = delete;
     Timer(Timer&&) = delete;
@@ -23,73 +43,15 @@ public:
 
     void sleep(std::chrono::milliseconds duration);
 
-    class Executor
-    {
-    public:
-        class TaskHandle
-        {
-        public:
-            ~TaskHandle();
-            void release() const;
+    void executeAt(std::chrono::milliseconds period,
+                   std::function<void(const TaskHandle&)> callback);
+    void executeAt(std::chrono::milliseconds period, std::function<void()> callback);
 
-            TaskHandle(const TaskHandle&) = delete;
-            TaskHandle& operator=(const TaskHandle&) = delete;
-
-        private:
-            friend class Executor;
-            TaskHandle(Executor& executor, std::size_t id);
-
-            mutable Executor* executor_ = nullptr;
-            mutable std::size_t id_ = 0;
-        };
-
-        ~Executor();
-
-        void executeAt(std::chrono::milliseconds period,
-                       std::function<void(const TaskHandle&)> callback);
-        void executeAt(std::chrono::milliseconds period, std::function<void()> callback);
-
-        // Ignoring the return value destroys the temporary at the end of the
-        // statement, which removes the callback immediately.
-        [[nodiscard]] std::unique_ptr<TaskHandle> executeAtEx(
-            std::chrono::milliseconds period,
-            std::function<void()> callback);
-
-    private:
-        friend class Timer;
-
-        Executor(Timer& timer, std::chrono::milliseconds period);
-
-        bool hasTasks() const;
-
-        std::chrono::milliseconds timeUntilCheck(std::chrono::milliseconds current) const;
-
-        void poll();
-        void cancel(std::size_t id);
-        void reap();
-
-        struct Task
-        {
-            std::size_t id = 0;
-            std::chrono::milliseconds period{0};
-            std::chrono::milliseconds next{0};
-            std::function<void(const TaskHandle&)> fn;
-            std::unique_ptr<TaskHandle> owned;
-            TaskHandle* handle = nullptr;
-            bool cancelled = false;
-        };
-
-        Task* find(std::size_t id);
-
-        Timer& timer_;
-        std::chrono::milliseconds check_period_;
-        std::chrono::milliseconds last_check_{0};
-        std::vector<Task> tasks_;
-        std::vector<TaskHandle*> live_handles_;
-        std::size_t next_id_ = 1;
-    };
-
-    Executor& getExecutor(std::chrono::milliseconds period);
+    // Ignoring the return value destroys the temporary at the end of the
+    // statement, which removes the callback immediately.
+    [[nodiscard]] std::unique_ptr<TaskHandle> executeAtEx(
+        std::chrono::milliseconds period,
+        std::function<void()> callback);
 
 private:
     enum class Mode
@@ -99,11 +61,27 @@ private:
         Real
     };
 
-    std::chrono::milliseconds nextCheckDelay() const;
-    void pollDueExecutors();
+    struct Task
+    {
+        std::size_t id = 0;
+        std::chrono::milliseconds period{0};
+        std::chrono::milliseconds next{0};
+        std::function<void(const TaskHandle&)> fn;
+        std::unique_ptr<TaskHandle> owned;
+        TaskHandle* handle = nullptr;
+        bool cancelled = false;
+    };
+
+    std::chrono::milliseconds timeUntilNext(std::chrono::milliseconds current) const;
+    void poll();
+    void cancel(std::size_t id);
+    void reap();
+    Task* find(std::size_t id);
 
     Mode mode_ = Mode::Idle;
     std::chrono::milliseconds virtual_now_{0};
     std::chrono::steady_clock::time_point real_origin_{};
-    std::map<std::chrono::milliseconds, std::unique_ptr<Executor>> executors_;
+    std::vector<Task> tasks_;
+    std::vector<TaskHandle*> live_handles_;
+    std::size_t next_id_ = 1;
 };

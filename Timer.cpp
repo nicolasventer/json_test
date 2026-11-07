@@ -4,6 +4,62 @@
 #include <thread>
 #include <utility>
 
+namespace
+{
+std::chrono::milliseconds normalizePeriod(std::chrono::milliseconds period)
+{
+    if (period.count() <= 0)
+    {
+        return std::chrono::milliseconds{1};
+    }
+    return period;
+}
+}  // namespace
+
+Timer::TaskHandle::~TaskHandle()
+{
+    release();
+}
+
+void Timer::TaskHandle::release() const
+{
+    if (timer_ == nullptr)
+    {
+        return;
+    }
+
+    Timer* const timer = timer_;
+    const std::size_t id = id_;
+    timer_ = nullptr;
+    id_ = 0;
+
+    timer->live_handles_.erase(
+        std::remove(timer->live_handles_.begin(), timer->live_handles_.end(), this),
+        timer->live_handles_.end());
+    timer->cancel(id);
+}
+
+Timer::TaskHandle::TaskHandle(Timer& timer, std::size_t id)
+    : timer_(&timer), id_(id)
+{
+    timer.live_handles_.push_back(this);
+}
+
+Timer::~Timer()
+{
+    for (TaskHandle* handle : live_handles_)
+    {
+        if (handle == nullptr)
+        {
+            continue;
+        }
+        handle->timer_ = nullptr;
+        handle->id_ = 0;
+    }
+    live_handles_.clear();
+    tasks_.clear();
+}
+
 void Timer::startVirtual()
 {
     mode_ = Mode::Virtual;
@@ -39,17 +95,17 @@ void Timer::sleep(std::chrono::milliseconds duration)
         const auto target = virtual_now_ + duration;
         while (virtual_now_ < target)
         {
-            const auto delay = nextCheckDelay();
+            const auto delay = timeUntilNext(virtual_now_);
             const auto remaining = target - virtual_now_;
             if (delay.count() == 0)
             {
-                pollDueExecutors();
+                poll();
                 continue;
             }
             if (delay <= remaining)
             {
                 virtual_now_ += delay;
-                pollDueExecutors();
+                poll();
                 continue;
             }
             virtual_now_ = target;
@@ -67,150 +123,36 @@ void Timer::sleep(std::chrono::milliseconds duration)
                 break;
             }
 
-            const auto delay = nextCheckDelay();
+            const auto delay = timeUntilNext(now());
             if (delay.count() == 0)
             {
-                pollDueExecutors();
+                poll();
                 continue;
             }
 
-            const bool check_due = delay <= remaining;
-            const auto slice = check_due ? delay : remaining;
+            const bool due = delay <= remaining;
+            const auto slice = due ? delay : remaining;
             std::this_thread::sleep_for(slice);
-            if (check_due)
+            if (due)
             {
-                pollDueExecutors();
+                poll();
             }
         }
     }
 }
 
-Timer::Executor::TaskHandle::TaskHandle(Executor& executor, std::size_t id)
-    : executor_(&executor), id_(id)
+void Timer::executeAt(std::chrono::milliseconds period,
+                      std::function<void(const TaskHandle&)> callback)
 {
-    executor.live_handles_.push_back(this);
-}
-
-Timer::Executor::TaskHandle::~TaskHandle()
-{
-    release();
-}
-
-void Timer::Executor::TaskHandle::release() const
-{
-    if (executor_ == nullptr)
-    {
-        return;
-    }
-
-    Executor* const exec = executor_;
-    const std::size_t id = id_;
-    executor_ = nullptr;
-    id_ = 0;
-
-    exec->live_handles_.erase(
-        std::remove(exec->live_handles_.begin(), exec->live_handles_.end(), this),
-        exec->live_handles_.end());
-    exec->cancel(id);
-}
-
-Timer::Executor::Executor(Timer& timer, std::chrono::milliseconds period)
-    : timer_(timer), check_period_(period), last_check_(timer.now())
-{
-}
-
-Timer::Executor::~Executor()
-{
-    for (TaskHandle* handle : live_handles_)
-    {
-        if (handle == nullptr)
-        {
-            continue;
-        }
-        handle->executor_ = nullptr;
-        handle->id_ = 0;
-    }
-    live_handles_.clear();
-    tasks_.clear();
-}
-
-bool Timer::Executor::hasTasks() const
-{
-    for (const Task& task : tasks_)
-    {
-        if (!task.cancelled)
-        {
-            return true;
-        }
-    }
-    return false;
-}
-
-std::chrono::milliseconds Timer::Executor::timeUntilCheck(std::chrono::milliseconds current) const
-{
-    const auto next = last_check_ + check_period_;
-    if (next <= current)
-    {
-        return std::chrono::milliseconds{0};
-    }
-    return next - current;
-}
-
-Timer::Executor::Task* Timer::Executor::find(std::size_t id)
-{
-    for (Task& task : tasks_)
-    {
-        if (task.id == id)
-        {
-            return &task;
-        }
-    }
-    return nullptr;
-}
-
-void Timer::Executor::cancel(std::size_t id)
-{
-    Task* const task = find(id);
-    if (task == nullptr)
-    {
-        return;
-    }
-    task->cancelled = true;
-    task->fn = nullptr;
-}
-
-void Timer::Executor::reap()
-{
-    tasks_.erase(std::remove_if(tasks_.begin(), tasks_.end(),
-                                [](const Task& task) { return task.cancelled; }),
-                 tasks_.end());
-}
-
-namespace
-{
-std::chrono::milliseconds normalizePeriod(std::chrono::milliseconds period,
-                                          std::chrono::milliseconds check_period)
-{
-    if (period.count() <= 0)
-    {
-        return check_period.count() > 0 ? check_period : std::chrono::milliseconds{1};
-    }
-    return period;
-}
-}  // namespace
-
-void Timer::Executor::executeAt(std::chrono::milliseconds period,
-                                std::function<void(const TaskHandle&)> callback)
-{
-    period = normalizePeriod(period, check_period_);
+    period = normalizePeriod(period);
 
     const std::size_t id = next_id_++;
     auto handle = std::unique_ptr<TaskHandle>(new TaskHandle(*this, id));
     TaskHandle* const raw = handle.get();
-    tasks_.push_back(Task{id, period, timer_.now() + period, std::move(callback), std::move(handle), raw, false});
+    tasks_.push_back(Task{id, period, now() + period, std::move(callback), std::move(handle), raw, false});
 }
 
-void Timer::Executor::executeAt(std::chrono::milliseconds period, std::function<void()> callback)
+void Timer::executeAt(std::chrono::milliseconds period, std::function<void()> callback)
 {
     executeAt(period, [callback = std::move(callback)](const TaskHandle&) {
         if (callback)
@@ -220,11 +162,10 @@ void Timer::Executor::executeAt(std::chrono::milliseconds period, std::function<
     });
 }
 
-std::unique_ptr<Timer::Executor::TaskHandle> Timer::Executor::executeAtEx(
-    std::chrono::milliseconds period,
-    std::function<void()> callback)
+std::unique_ptr<Timer::TaskHandle> Timer::executeAtEx(std::chrono::milliseconds period,
+                                                      std::function<void()> callback)
 {
-    period = normalizePeriod(period, check_period_);
+    period = normalizePeriod(period);
 
     const std::size_t id = next_id_++;
     auto handle = std::unique_ptr<TaskHandle>(new TaskHandle(*this, id));
@@ -232,7 +173,7 @@ std::unique_ptr<Timer::Executor::TaskHandle> Timer::Executor::executeAtEx(
     tasks_.push_back(Task{
         id,
         period,
-        timer_.now() + period,
+        now() + period,
         [callback = std::move(callback)](const TaskHandle&) {
             if (callback)
             {
@@ -245,9 +186,33 @@ std::unique_ptr<Timer::Executor::TaskHandle> Timer::Executor::executeAtEx(
     return handle;
 }
 
-void Timer::Executor::poll()
+std::chrono::milliseconds Timer::timeUntilNext(std::chrono::milliseconds current) const
 {
-    const auto current = timer_.now();
+    bool found = false;
+    std::chrono::milliseconds earliest{0};
+    for (const Task& task : tasks_)
+    {
+        if (task.cancelled)
+        {
+            continue;
+        }
+        const auto due_in = task.next <= current ? std::chrono::milliseconds{0} : task.next - current;
+        if (!found || due_in < earliest)
+        {
+            earliest = due_in;
+            found = true;
+        }
+    }
+    if (!found)
+    {
+        return std::chrono::milliseconds::max();
+    }
+    return earliest;
+}
+
+void Timer::poll()
+{
+    const auto current = now();
     for (;;)
     {
         std::vector<std::size_t> due;
@@ -283,67 +248,34 @@ void Timer::Executor::poll()
     }
 
     reap();
-    last_check_ = current;
 }
 
-Timer::Executor& Timer::getExecutor(std::chrono::milliseconds period)
+void Timer::cancel(std::size_t id)
 {
-    if (period.count() <= 0)
+    Task* const task = find(id);
+    if (task == nullptr)
     {
-        period = std::chrono::milliseconds{1};
+        return;
     }
-
-    const auto found = executors_.find(period);
-    if (found != executors_.end())
-    {
-        return *found->second;
-    }
-
-    auto executor = std::unique_ptr<Executor>(new Executor(*this, period));
-    Executor& ref = *executor;
-    executors_.emplace(period, std::move(executor));
-    return ref;
+    task->cancelled = true;
+    task->fn = nullptr;
 }
 
-std::chrono::milliseconds Timer::nextCheckDelay() const
+void Timer::reap()
 {
-    const auto current = now();
-    bool found = false;
-    std::chrono::milliseconds earliest{0};
-    for (const auto& entry : executors_)
-    {
-        const Executor& executor = *entry.second;
-        if (!executor.hasTasks())
-        {
-            continue;
-        }
-        const auto due_in = executor.timeUntilCheck(current);
-        if (!found || due_in < earliest)
-        {
-            earliest = due_in;
-            found = true;
-        }
-    }
-    if (!found)
-    {
-        return std::chrono::milliseconds::max();
-    }
-    return earliest;
+    tasks_.erase(std::remove_if(tasks_.begin(), tasks_.end(),
+                                [](const Task& task) { return task.cancelled; }),
+                 tasks_.end());
 }
 
-void Timer::pollDueExecutors()
+Timer::Task* Timer::find(std::size_t id)
 {
-    const auto current = now();
-    for (auto& entry : executors_)
+    for (Task& task : tasks_)
     {
-        Executor& executor = *entry.second;
-        if (!executor.hasTasks())
+        if (task.id == id)
         {
-            continue;
-        }
-        if (executor.timeUntilCheck(current).count() == 0)
-        {
-            executor.poll();
+            return &task;
         }
     }
+    return nullptr;
 }

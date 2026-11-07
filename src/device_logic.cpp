@@ -24,7 +24,7 @@ void DeviceLogic::onReceive(config message) {
   }
 
   const auto interval = std::chrono::milliseconds{config_.interval_ms};
-  tick_ = module_->getTimer().getExecutor(interval).executeAtEx(interval, [this] {
+  tick_ = module_->getTimer().executeAtEx(interval, [this] {
     onTick(static_cast<int>(module_->getTimer().now().count()));
   });
 }

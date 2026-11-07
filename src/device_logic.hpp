@@ -21,7 +21,7 @@ class DeviceLogic : public IModuleLogic {
   bool has_config_ = false;
   bool started_ = false;
   int processed_ticks_ = 0;
-  std::unique_ptr<Timer::Executor::TaskHandle> tick_;
+  std::unique_ptr<Timer::TaskHandle> tick_;
 };
 
 }  // namespace json_test

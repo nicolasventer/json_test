@@ -4,9 +4,11 @@
 
 namespace json_test {
 
-TestModule::TestModule(Timer& timer) : timer_(timer) {}
+TestModule::TestModule(IModuleLogic& logic) : logic_(logic) { logic_.setModule(*this); }
 
-void TestModule::setLogic(IModuleLogic* logic) { logic_ = logic; }
+Timer& TestModule::getTimer() { return timer_; }
+
+IModuleLogic& TestModule::getLogic() { return logic_; }
 
 void TestModule::Start() { timer_.startVirtual(); }
 

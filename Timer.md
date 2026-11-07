@@ -53,20 +53,31 @@ Une durée négative, ou un minuteur encore inactif, ne fait rien.
 
 `addOnSleep` enregistre une fonction appelée à la fin de chaque `sleep`, sur le thread appelant. La surcharge `void(std::size_t)` reçoit l'identifiant du hook ; la surcharge `void()` l'ignore. `removeOnSleep` retire un hook par cet identifiant.
 
-`DeviceLogic` s'en sert pour rattraper les ticks après un `sleep` de test.
+Ces hooks sont indépendants des tâches d'exécuteur : une tâche part pendant `sleep`, au pas de contrôle, pas à la fin du sommeil.
 
 ## Exécuteurs
 
 `getExecutor(periode)` renvoie l'exécuteur associé à ce pas de réveil. Une période nulle ou négative devient 1 ms. Deux appels avec la même période renvoient le même exécuteur.
 
 - La période passée à `getExecutor` est le pas auquel `sleep` réveille cet exécuteur.
-- `executeAt(periode, callback)` enregistre une tâche. Elle devient due à `now() + periode`, puis à chaque multiple de sa période. L'identifiant renvoyé sert à `stopExecute`.
+- `executeAt(periode, callback)` enregistre une tâche. Elle devient due à `now() + periode`, puis à chaque multiple de sa période. La surcharge `void()` ignore le handle. La surcharge `void(const TaskHandle&)` le reçoit : `release()` retire la tâche, un second appel ne fait rien, et le destructeur de `TaskHandle` appelle `release()`.
+- `executeAtEx(periode, callback)` enregistre une callback `void()` et renvoie `std::unique_ptr<TaskHandle>`. Détruire ce pointeur, ou appeler `release()`, retire la callback. Ignorer le retour détruit le temporaire à la fin de l'instruction, donc retire la callback tout de suite.
 - Pour une cadence régulière, les deux périodes sont égales. Si le pas de réveil est plus long que la période de la tâche, `poll` rattrape les échéances manquées en rafale dans le même appel.
 
-`executeAt` n'appelle pas la callback. Seul un `sleep` qui atteint le pas de contrôle le fait.
+`executeAt` et `executeAtEx` n'appellent pas la callback. Seul un `sleep` qui atteint le pas de contrôle le fait.
+
+```cpp
+auto tick = timer.getExecutor(std::chrono::milliseconds{100})
+                 .executeAtEx(std::chrono::milliseconds{100}, [] {
+                     // toutes les 100 ms, tant que tick est vivant
+                 });
+
+timer.sleep(std::chrono::milliseconds{500});
+tick->release(); // ou laisser tick sortir de portée
+```
 
 `std::this_thread::sleep_for` ne garantit pas un réveil exact. Sous Windows, la cadence réelle oscille autour de la période demandée. Si une callback dure plus longtemps que sa période, les échéances en retard partent en rafale.
 
 ## Destruction
 
-Le destructeur est celui généré par le compilateur. Aucune callback n'est appelée. Les exécuteurs et leurs tâches sont détruits avant les hooks de `addOnSleep`. Toute `Executor&` obtenue via `getExecutor` devient invalide avec le `Timer`.
+Aucune callback n'est appelée. Le destructeur d'un exécuteur détache chaque `TaskHandle` encore lié, puis détruit ses tâches : le destructeur du handle ne rappelle pas un exécuteur déjà en cours de destruction. Un `unique_ptr<TaskHandle>` qui survivrait au `Timer` ne fait plus rien. Les exécuteurs sont détruits avant les hooks de `addOnSleep`. Toute `Executor&` obtenue via `getExecutor` devient invalide avec le `Timer`.

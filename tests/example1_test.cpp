@@ -11,21 +11,17 @@ namespace {
 
 class SuiteDispositif : public testing::Test {
  protected:
-  Timer timer;
-  json_test::TestModule module{timer};
-  json_test::DeviceLogic logic{module, timer};
+  json_test::DeviceLogic logic;
+  json_test::TestModule module{logic};
 
-  void SetUp() override {
-    module.setLogic(&logic);
-    module.Start();
-  }
+  void SetUp() override { module.Start(); }
 };
 
 TEST_F(SuiteDispositif, DemarrageDuDispositif) {
   module.expect.resetExpect();
   logic.onReceive(config{100, 30.5});
   logic.onReceive(cmd{"START"});
-  timer.sleep(std::chrono::milliseconds{100});
+  module.getTimer().sleep(std::chrono::milliseconds{100});
 
   const state* data_1 = module.expect.rFindSend<state>("state");
   ASSERT_NE(data_1, nullptr) << "aucun message \"state\" envoyé";
@@ -41,7 +37,7 @@ TEST_F(SuiteDispositif, MesureSousLeSeuil) {
   module.expect.resetExpect();
   logic.onReceive(config{100, 30.5});
   logic.onReceive(cmd{"START"});
-  timer.sleep(std::chrono::milliseconds{100});
+  module.getTimer().sleep(std::chrono::milliseconds{100});
 
   const measure* data_1 = module.expect.rFindSend<measure>("measure");
   ASSERT_NE(data_1, nullptr) << "aucun message \"measure\" envoyé";
@@ -57,7 +53,7 @@ TEST_F(SuiteDispositif, SeuilDepasse) {
   module.expect.resetExpect();
   logic.onReceive(config{100, 30.5});
   logic.onReceive(cmd{"START"});
-  timer.sleep(std::chrono::milliseconds{200});
+  module.getTimer().sleep(std::chrono::milliseconds{200});
 
   const alarm* data_1 = module.expect.rFindSend<alarm>("alarm");
   ASSERT_NE(data_1, nullptr) << "aucun message \"alarm\" envoyé";
@@ -73,7 +69,7 @@ TEST_F(SuiteDispositif, ArretDuDispositif) {
   module.expect.resetExpect();
   logic.onReceive(config{100, 30.5});
   logic.onReceive(cmd{"START"});
-  timer.sleep(std::chrono::milliseconds{100});
+  module.getTimer().sleep(std::chrono::milliseconds{100});
   logic.onReceive(cmd{"STOP"});
 
   const state* data_1 = module.expect.rFindSend<state>("state");

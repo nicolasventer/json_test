@@ -10,9 +10,10 @@ class TestModule : public IModule {
  public:
   ModuleExpect<state, measure, alarm> expect;
 
-  explicit TestModule(Timer& timer);
+  explicit TestModule(IModuleLogic& logic);
 
-  void setLogic(IModuleLogic* logic) override;
+  Timer& getTimer() override;
+  IModuleLogic& getLogic() override;
   void Start() override;
 
   void send(state message) override;
@@ -20,8 +21,8 @@ class TestModule : public IModule {
   void send(alarm message) override;
 
  private:
-  Timer& timer_;
-  IModuleLogic* logic_ = nullptr;
+  Timer timer_;
+  IModuleLogic& logic_;
 };
 
 }  // namespace json_test

@@ -30,9 +30,34 @@ public:
     class Executor
     {
     public:
-        std::size_t executeAt(std::chrono::milliseconds period, std::function<void(std::size_t)> callback);
-        std::size_t executeAt(std::chrono::milliseconds period, std::function<void()> callback);
-        void stopExecute(std::size_t id);
+        class TaskHandle
+        {
+        public:
+            ~TaskHandle();
+            void release() const;
+
+            TaskHandle(const TaskHandle&) = delete;
+            TaskHandle& operator=(const TaskHandle&) = delete;
+
+        private:
+            friend class Executor;
+            TaskHandle(Executor& executor, std::size_t id);
+
+            mutable Executor* executor_ = nullptr;
+            mutable std::size_t id_ = 0;
+        };
+
+        ~Executor();
+
+        void executeAt(std::chrono::milliseconds period,
+                       std::function<void(const TaskHandle&)> callback);
+        void executeAt(std::chrono::milliseconds period, std::function<void()> callback);
+
+        // Ignoring the return value destroys the temporary at the end of the
+        // statement, which removes the callback immediately.
+        [[nodiscard]] std::unique_ptr<TaskHandle> executeAtEx(
+            std::chrono::milliseconds period,
+            std::function<void()> callback);
 
     private:
         friend class Timer;
@@ -43,22 +68,28 @@ public:
 
         std::chrono::milliseconds timeUntilCheck(std::chrono::milliseconds current) const;
 
-        bool contains(std::size_t id) const;
-
         void poll();
+        void cancel(std::size_t id);
+        void reap();
 
         struct Task
         {
             std::size_t id = 0;
             std::chrono::milliseconds period{0};
             std::chrono::milliseconds next{0};
-            std::function<void(std::size_t)> fn;
+            std::function<void(const TaskHandle&)> fn;
+            std::unique_ptr<TaskHandle> owned;
+            TaskHandle* handle = nullptr;
+            bool cancelled = false;
         };
+
+        Task* find(std::size_t id);
 
         Timer& timer_;
         std::chrono::milliseconds check_period_;
         std::chrono::milliseconds last_check_{0};
         std::vector<Task> tasks_;
+        std::vector<TaskHandle*> live_handles_;
         std::size_t next_id_ = 1;
     };
 

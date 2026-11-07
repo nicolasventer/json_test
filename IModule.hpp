@@ -76,13 +76,22 @@ struct alarm
     int code;
 };
 
+class Timer;
 class IModuleLogic;
 
 class IModule
 {
 public:
+    IModule() = default;
     virtual ~IModule() = default;
-    virtual void setLogic(IModuleLogic* logic) = 0;
+
+    IModule(const IModule&) = delete;
+    IModule& operator=(const IModule&) = delete;
+    IModule(IModule&&) = delete;
+    IModule& operator=(IModule&&) = delete;
+
+    virtual Timer& getTimer() = 0;
+    virtual IModuleLogic& getLogic() = 0;
     virtual void Start() = 0;
 
     virtual void send(state message) = 0;
@@ -93,8 +102,15 @@ public:
 class IModuleLogic
 {
 public:
+    IModuleLogic() = default;
     virtual ~IModuleLogic() = default;
 
+    IModuleLogic(const IModuleLogic&) = delete;
+    IModuleLogic& operator=(const IModuleLogic&) = delete;
+    IModuleLogic(IModuleLogic&&) = delete;
+    IModuleLogic& operator=(IModuleLogic&&) = delete;
+
+    virtual void setModule(IModule& module) = 0;
     virtual void onReceive(cmd message) = 0;
     virtual void onReceive(config message) = 0;
 };

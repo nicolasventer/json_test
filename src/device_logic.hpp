@@ -3,32 +3,25 @@
 #include "IModule.hpp"
 #include "Timer.hpp"
 
-#include <cstddef>
+#include <memory>
 
 namespace json_test {
 
 class DeviceLogic : public IModuleLogic {
  public:
-  DeviceLogic(IModule& module, Timer& timer);
-  ~DeviceLogic() override;
-
-  DeviceLogic(const DeviceLogic&) = delete;
-  DeviceLogic& operator=(const DeviceLogic&) = delete;
-
+  void setModule(IModule& module) override;
   void onReceive(cmd message) override;
   void onReceive(config message) override;
-  void update();
 
  private:
-  void onTick(int index, int tick_ms);
+  void onTick(int tick_ms);
 
-  IModule& module_;
-  Timer& timer_;
+  IModule* module_ = nullptr;
   config config_{};
   bool has_config_ = false;
   bool started_ = false;
   int processed_ticks_ = 0;
-  std::size_t on_sleep_id_ = 0;
+  std::unique_ptr<Timer::Executor::TaskHandle> tick_;
 };
 
 }  // namespace json_test

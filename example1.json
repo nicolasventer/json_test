@@ -1,5 +1,6 @@
 {
   "name": "Suite dispositif",
+  "use_virtual_time": true,
   "tests": [
     {
       "name": "Démarrage du dispositif",

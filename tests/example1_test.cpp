@@ -12,7 +12,7 @@ namespace {
 class SuiteDispositif : public testing::Test {
  protected:
   json_test::DeviceLogic logic;
-  json_test::TestModule module{logic};
+  json_test::TestModule module{logic, true};
 
   void SetUp() override { module.Start(); }
 };

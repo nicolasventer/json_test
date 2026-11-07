@@ -10,7 +10,7 @@ class TestModule : public IModule {
  public:
   ModuleExpect<state, measure, alarm> expect;
 
-  explicit TestModule(IModuleLogic& logic);
+  TestModule(IModuleLogic& logic, bool useVirtualTime);
 
   Timer& getTimer() override;
   IModuleLogic& getLogic() override;
@@ -23,6 +23,7 @@ class TestModule : public IModule {
  private:
   Timer timer_;
   IModuleLogic& logic_;
+  bool use_virtual_time_;
 };
 
 }  // namespace json_test

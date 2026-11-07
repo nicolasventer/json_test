@@ -2,13 +2,14 @@
 
 ## 1. Vue d'ensemble
 
-Cette spécification définit un langage spécifique au domaine (_Domain-Specific Language_, DSL) basé sur JSON pour tester un système, simuler des échanges de données, faire avancer le temps virtuel et vérifier son comportement.
+Cette spécification définit un langage spécifique au domaine (_Domain-Specific Language_, DSL) basé sur JSON pour tester un système, simuler des échanges de données, faire avancer le temps et vérifier son comportement.
 
 Un fichier décrit une suite de tests. Chaque test contient une liste ordonnée d'étapes, représentées par des tableaux JSON dont le premier élément identifie l'opération.
 
 ```json
 {
 	"name": "Suite de démarrage et d'arrêt",
+	"use_virtual_time": true,
 	"tests": [
 		{
 			"name": "Démarrage du dispositif",
@@ -33,10 +34,11 @@ Un fichier décrit une suite de tests. Chaque test contient une liste ordonnée 
 
 La racine du document est une suite de tests contenant les champs suivants :
 
-| Champ   | Type    | Description                  |
-| ------- | ------- | ---------------------------- |
-| `name`  | chaîne  | Nom de la suite de tests.    |
-| `tests` | tableau | Liste des tests de la suite. |
+| Champ              | Type    | Description                                                                                          |
+| ------------------ | ------- | ---------------------------------------------------------------------------------------------------- |
+| `name`             | chaîne  | Nom de la suite de tests.                                                                            |
+| `use_virtual_time` | booléen | `true` : le temps avance sans attendre. `false` : `sleep_ms` attend en temps réel. Obligatoire.      |
+| `tests`            | tableau | Liste des tests de la suite.                                                                         |
 
 ### 2.2 Champs d'un test
 
@@ -54,7 +56,7 @@ Chaque élément de `tests` est un objet comportant les champs suivants :
 | `receive`         | `["receive", topic, data]`         | Simule la réception de données par le système.                                                                            |
 | `expect_send`     | `["expect_send", topic, expected]` | Vérifie immédiatement les données déjà envoyées par le système pour le topic spécifié.                                    |
 | `expect_not_send` | `["expect_not_send", topic]`       | Vérifie immédiatement qu'aucune donnée du topic spécifié n'a été envoyée depuis le dernier `reset_expect`.                |
-| `sleep_ms`        | `["sleep_ms", milliseconds]`       | Fait avancer le temps virtuel du nombre de millisecondes spécifié.                                                        |
+| `sleep_ms`        | `["sleep_ms", milliseconds]`       | Fait avancer le temps du nombre de millisecondes spécifié.                                                                |
 | `reset_expect`    | `["reset_expect"]`                 | Définit un nouveau point de référence pour les vérifications négatives des envois. Ne réinitialise pas l'état du système. |
 
 ## 4. Données et simulation des échanges
@@ -125,7 +127,7 @@ Syntaxe :
 ["expect_send", topic, expected]
 ```
 
-Vérifie immédiatement que le système a déjà envoyé, sur le topic spécifié, un message correspondant aux données attendues. Cette vérification ne patiente pas et ne fait pas avancer le temps virtuel. Lorsqu'un délai virtuel est nécessaire, `sleep_ms` est placé avant la vérification.
+Vérifie immédiatement que le système a déjà envoyé, sur le topic spécifié, un message correspondant aux données attendues. Cette vérification ne patiente pas et ne fait pas avancer le temps. Lorsqu'un délai est nécessaire, `sleep_ms` est placé avant la vérification.
 
 Exemple :
 
@@ -143,7 +145,7 @@ Syntaxe :
 ["expect_not_send", topic]
 ```
 
-Vérifie immédiatement qu'aucun message du topic spécifié n'a été envoyé depuis le dernier `reset_expect`. Cette vérification ne patiente pas et ne fait pas avancer le temps virtuel.
+Vérifie immédiatement qu'aucun message du topic spécifié n'a été envoyé depuis le dernier `reset_expect`. Cette vérification ne patiente pas et ne fait pas avancer le temps.
 
 Exemple :
 
@@ -151,7 +153,12 @@ Exemple :
 [["reset_expect"], ["sleep_ms", 100], ["expect_not_send", "error"]]
 ```
 
-## 6. Temps virtuel
+## 6. Temps
+
+Le champ `use_virtual_time` de la suite s'applique à tous ses tests.
+
+- Lorsque `use_virtual_time` vaut `true`, `sleep_ms` avance le temps sans attendre. Les événements au même instant sont traités de façon déterministe.
+- Lorsque `use_virtual_time` vaut `false`, `sleep_ms` attend ce nombre de millisecondes en temps réel, puis traite les événements dus.
 
 ### 6.1 `sleep_ms`
 
@@ -161,7 +168,7 @@ Syntaxe :
 ["sleep_ms", milliseconds]
 ```
 
-Fait avancer l'horloge virtuelle du nombre de millisecondes indiqué et traite les événements programmés pendant cet intervalle, sans attendre en temps réel. Les événements programmés au même instant virtuel sont traités de façon déterministe.
+Fait avancer le temps du nombre de millisecondes indiqué, selon `use_virtual_time`, et traite les événements programmés pendant cet intervalle.
 
 Exemple :
 
@@ -173,7 +180,7 @@ Exemple :
 ]
 ```
 
-Si une réponse dépend d'un délai virtuel, `sleep_ms` doit être exécuté avant la vérification.
+Si une réponse dépend d'un délai, `sleep_ms` doit être exécuté avant la vérification.
 
 ## 7. Point de référence des vérifications
 
@@ -189,7 +196,7 @@ Définit un nouveau point de référence pour `expect_not_send`. Cette opératio
 
 - Ne réinitialise pas l'état du système.
 - Efface les envois enregistrés.
-- Ne fait pas avancer le temps virtuel et ne le remet pas à zéro.
+- Ne fait pas avancer le temps et ne le remet pas à zéro.
 
 Exemple :
 
@@ -217,7 +224,7 @@ Les étapes d'un test s'exécutent selon les règles suivantes :
 2. Chaque étape se termine avant le début de la suivante.
 3. Une vérification qui échoue interrompt le test.
 4. `receive` simule la réception de données par le système.
-5. `sleep_ms` fait avancer le temps virtuel et traite les événements de manière déterministe.
+5. `sleep_ms` fait avancer le temps et traite les événements de manière déterministe.
 6. `expect_send` vérifie immédiatement qu'un message correspondant a déjà été envoyé.
 7. `expect_not_send` vérifie immédiatement l'absence de message du topic depuis le dernier `reset_expect`.
 8. En cas d'échec, le test indique le test et l'étape en échec, les données attendues et réelles lorsqu'elles sont disponibles, ainsi que la raison de l'échec.
@@ -227,6 +234,7 @@ Les étapes d'un test s'exécutent selon les règles suivantes :
 ```json
 {
 	"name": "Suite de démarrage et d'arrêt",
+	"use_virtual_time": true,
 	"tests": [
 		{
 			"name": "Démarrage du dispositif",

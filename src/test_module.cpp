@@ -2,13 +2,22 @@
 
 namespace json_test {
 
-TestModule::TestModule(IModuleLogic& logic) : logic_(logic) { logic_.setModule(*this); }
+TestModule::TestModule(IModuleLogic& logic, bool useVirtualTime)
+    : logic_(logic), use_virtual_time_(useVirtualTime) {
+  logic_.setModule(*this);
+}
 
 Timer& TestModule::getTimer() { return timer_; }
 
 IModuleLogic& TestModule::getLogic() { return logic_; }
 
-void TestModule::Start() { timer_.startVirtual(); }
+void TestModule::Start() {
+  if (use_virtual_time_) {
+    timer_.startVirtual();
+  } else {
+    timer_.startReal();
+  }
+}
 
 void TestModule::send_state(const state& message) { expect.record("state", message); }
 

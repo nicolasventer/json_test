@@ -4,7 +4,7 @@ namespace json_test {
 
 void DeviceLogic::setModule(IModule& module) { module_ = &module; }
 
-void DeviceLogic::onReceive(cmd message) {
+void DeviceLogic::onReceive_cmd(const cmd& message) {
   if (message.value == "START") {
     started_ = true;
     return;
@@ -12,11 +12,11 @@ void DeviceLogic::onReceive(cmd message) {
 
   // Arrêt laissé inactif : le test « Arrêt du dispositif » doit échouer.
   // if (message.value == "STOP") {
-  //   module_->send(state{CLOSED, static_cast<int>(module_->getTimer().now().count())});
+  //   module_->send_state(state{CLOSED, static_cast<int>(module_->getTimer().now().count())});
   // }
 }
 
-void DeviceLogic::onReceive(config message) {
+void DeviceLogic::onReceive_config(const config& message) {
   config_ = message;
   has_config_ = true;
   if (tick_ || module_ == nullptr || config_.interval_ms <= 0) {
@@ -37,16 +37,16 @@ void DeviceLogic::onTick(int tick_ms) {
   ++processed_ticks_;
   if (processed_ticks_ == 1) {
     const double temperature = config_.threshold - 5.5;
-    module_->send(state{RUNNING, tick_ms});
-    module_->send(measure{temperature, 40});
+    module_->send_state(state{RUNNING, tick_ms});
+    module_->send_measure(measure{temperature, 40});
     return;
   }
 
   if (processed_ticks_ == 2) {
     const double temperature = config_.threshold + 0.5;
     if (temperature > config_.threshold) {
-      module_->send(alarm{WARN, 42});
-      module_->send(state{CLOSED, tick_ms});
+      module_->send_alarm(alarm{WARN, 42});
+      module_->send_state(state{CLOSED, tick_ms});
     }
   }
 }

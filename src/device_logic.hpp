@@ -10,8 +10,8 @@ namespace json_test {
 class DeviceLogic : public IModuleLogic {
  public:
   void setModule(IModule& module) override;
-  void onReceive(cmd message) override;
-  void onReceive(config message) override;
+  void onReceive_cmd(const cmd& message) override;
+  void onReceive_config(const config& message) override;
 
  private:
   void onTick(int tick_ms);

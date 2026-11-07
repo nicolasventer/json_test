@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "enum_ostream_case.hpp"
+#include "enum_ostream.hpp"
 
 enum EStateStatus
 {
@@ -69,9 +69,9 @@ public:
 	virtual IModuleLogic& getLogic() = 0;
 	virtual void Start() = 0;
 
-	virtual void send(state message) = 0;
-	virtual void send(measure message) = 0;
-	virtual void send(alarm message) = 0;
+	virtual void send_state(const state& message) = 0;
+	virtual void send_measure(const measure& message) = 0;
+	virtual void send_alarm(const alarm& message) = 0;
 };
 
 class IModuleLogic
@@ -86,6 +86,6 @@ public:
 	IModuleLogic& operator=(IModuleLogic&&) = delete;
 
 	virtual void setModule(IModule& module) = 0;
-	virtual void onReceive(cmd message) = 0;
-	virtual void onReceive(config message) = 0;
+	virtual void onReceive_cmd(const cmd& message) = 0;
+	virtual void onReceive_config(const config& message) = 0;
 };

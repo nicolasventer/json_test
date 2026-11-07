@@ -16,9 +16,9 @@ class TestModule : public IModule {
   IModuleLogic& getLogic() override;
   void Start() override;
 
-  void send(state message) override;
-  void send(measure message) override;
-  void send(alarm message) override;
+  void send_state(const state& message) override;
+  void send_measure(const measure& message) override;
+  void send_alarm(const alarm& message) override;
 
  private:
   Timer timer_;

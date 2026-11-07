@@ -12,5 +12,6 @@
 -Wno-gnu-zero-variadic-macro-arguments
 -Wno-c2y-extensions
 -Isrc
+-Iinclude
 -I.
 -Ibuild/_deps/googletest-src/googletest/include

@@ -23,11 +23,11 @@ TEST_F(SuiteDispositif, DemarrageDuDispositif) {
   config data_in_1;
   data_in_1.interval_ms = 100;
   data_in_1.threshold = 30.5;
-  logic.onReceive(data_in_1);
+  logic.onReceive_config(data_in_1);
 
   cmd data_in_2;
   data_in_2.value = "START";
-  logic.onReceive(data_in_2);
+  logic.onReceive_cmd(data_in_2);
 
   module.getTimer().sleep(std::chrono::milliseconds{100});
 
@@ -47,11 +47,11 @@ TEST_F(SuiteDispositif, MesureSousLeSeuil) {
   config data_in_1;
   data_in_1.interval_ms = 100;
   data_in_1.threshold = 30.5;
-  logic.onReceive(data_in_1);
+  logic.onReceive_config(data_in_1);
 
   cmd data_in_2;
   data_in_2.value = "START";
-  logic.onReceive(data_in_2);
+  logic.onReceive_cmd(data_in_2);
 
   module.getTimer().sleep(std::chrono::milliseconds{100});
 
@@ -71,11 +71,11 @@ TEST_F(SuiteDispositif, SeuilDepasse) {
   config data_in_1;
   data_in_1.interval_ms = 100;
   data_in_1.threshold = 30.5;
-  logic.onReceive(data_in_1);
+  logic.onReceive_config(data_in_1);
 
   cmd data_in_2;
   data_in_2.value = "START";
-  logic.onReceive(data_in_2);
+  logic.onReceive_cmd(data_in_2);
 
   module.getTimer().sleep(std::chrono::milliseconds{200});
 
@@ -95,17 +95,17 @@ TEST_F(SuiteDispositif, ArretDuDispositif) {
   config data_in_1;
   data_in_1.interval_ms = 100;
   data_in_1.threshold = 30.5;
-  logic.onReceive(data_in_1);
+  logic.onReceive_config(data_in_1);
 
   cmd data_in_2;
   data_in_2.value = "START";
-  logic.onReceive(data_in_2);
+  logic.onReceive_cmd(data_in_2);
 
   module.getTimer().sleep(std::chrono::milliseconds{100});
 
   cmd data_in_3;
   data_in_3.value = "STOP";
-  logic.onReceive(data_in_3);
+  logic.onReceive_cmd(data_in_3);
 
   const state* data_out_1 = module.expect.rFindSend<state>("state");
   ASSERT_NE(data_out_1, nullptr) << "aucun message \"state\" envoyé";

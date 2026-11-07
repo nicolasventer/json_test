@@ -1,7 +1,5 @@
 #include "test_module.hpp"
 
-#include <utility>
-
 namespace json_test {
 
 TestModule::TestModule(IModuleLogic& logic) : logic_(logic) { logic_.setModule(*this); }
@@ -12,10 +10,10 @@ IModuleLogic& TestModule::getLogic() { return logic_; }
 
 void TestModule::Start() { timer_.startVirtual(); }
 
-void TestModule::send(state message) { expect.record("state", std::move(message)); }
+void TestModule::send_state(const state& message) { expect.record("state", message); }
 
-void TestModule::send(measure message) { expect.record("measure", std::move(message)); }
+void TestModule::send_measure(const measure& message) { expect.record("measure", message); }
 
-void TestModule::send(alarm message) { expect.record("alarm", std::move(message)); }
+void TestModule::send_alarm(const alarm& message) { expect.record("alarm", message); }
 
 }  // namespace json_test

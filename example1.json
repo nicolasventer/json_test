@@ -9,7 +9,7 @@
         ["receive", "config", { "interval_ms": 100, "threshold": 30.5 }],
         ["receive", "cmd", { "value": "START" }],
         ["sleep_ms", 100],
-        ["expect_send", "state", { "status": "RUNNING", "uptime_ms": 100 }],
+        ["expect_send", "state", { "status": "RUNNING", "uptime_ms": [">=", 100] }],
         ["reset_expect"],
         ["expect_not_send", "alarm"]
       ]

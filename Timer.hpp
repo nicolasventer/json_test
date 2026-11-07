@@ -74,6 +74,7 @@ private:
 
     std::chrono::milliseconds timeUntilNext(std::chrono::milliseconds current) const;
     void poll();
+    void pollAt(std::chrono::milliseconds current);
     void cancel(std::size_t id);
     void reap();
     Task* find(std::size_t id);

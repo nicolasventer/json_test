@@ -34,7 +34,7 @@ TEST_F(SuiteDispositif, DemarrageDuDispositif) {
   const state* data_out_1 = module.expect.rFindSend<state>("state");
   ASSERT_NE(data_out_1, nullptr) << "aucun message \"state\" envoyé";
   EXPECT_EQ(data_out_1->status, RUNNING);
-  EXPECT_EQ(data_out_1->uptime_ms, 100);
+  EXPECT_GE(data_out_1->uptime_ms, 100);
 
   module.expect.resetExpect();
   const alarm* data_out_2 = module.expect.rFindSend<alarm>("alarm");

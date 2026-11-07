@@ -114,29 +114,34 @@ void Timer::sleep(std::chrono::milliseconds duration)
     else
     {
         const auto deadline = std::chrono::steady_clock::now() + duration;
-        while (std::chrono::steady_clock::now() < deadline)
+        const auto deadline_ms = now() + duration;
+        for (;;)
         {
-            const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
-                deadline - std::chrono::steady_clock::now());
-            if (remaining.count() <= 0)
+            const auto visible = std::min(now(), deadline_ms);
+            if (timeUntilNext(visible).count() == 0)
+            {
+                pollAt(visible);
+                continue;
+            }
+
+            const auto now_tp = std::chrono::steady_clock::now();
+            if (now_tp >= deadline)
             {
                 break;
             }
 
-            const auto delay = timeUntilNext(now());
-            if (delay.count() == 0)
+            const auto delay = timeUntilNext(visible);
+            const auto remaining = deadline - now_tp;
+            if (delay == std::chrono::milliseconds::max())
             {
-                poll();
+                std::this_thread::sleep_for(remaining);
                 continue;
             }
 
-            const bool due = delay <= remaining;
-            const auto slice = due ? delay : remaining;
+            const auto slice = std::min(
+                std::chrono::duration_cast<std::chrono::steady_clock::duration>(delay),
+                remaining);
             std::this_thread::sleep_for(slice);
-            if (due)
-            {
-                poll();
-            }
         }
     }
 }
@@ -212,7 +217,11 @@ std::chrono::milliseconds Timer::timeUntilNext(std::chrono::milliseconds current
 
 void Timer::poll()
 {
-    const auto current = now();
+    pollAt(now());
+}
+
+void Timer::pollAt(std::chrono::milliseconds current)
+{
     for (;;)
     {
         std::vector<std::size_t> due;

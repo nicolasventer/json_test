@@ -83,33 +83,6 @@ void Timer::sleep(std::chrono::milliseconds duration)
             }
         }
     }
-
-    notifyOnSleep();
-}
-
-std::size_t Timer::addOnSleep(std::function<void(std::size_t)> callback)
-{
-    const std::size_t id = next_sleep_id_++;
-    on_sleep_.push_back(SleepHook{id, std::move(callback)});
-    return id;
-}
-
-std::size_t Timer::addOnSleep(std::function<void()> callback)
-{
-    return addOnSleep([callback = std::move(callback)](std::size_t) {
-        if (callback)
-        {
-            callback();
-        }
-    });
-}
-
-void Timer::removeOnSleep(std::size_t id)
-{
-    on_sleep_.erase(
-        std::remove_if(on_sleep_.begin(), on_sleep_.end(),
-                       [id](const SleepHook& hook) { return hook.id == id; }),
-        on_sleep_.end());
 }
 
 Timer::Executor::TaskHandle::TaskHandle(Executor& executor, std::size_t id)
@@ -372,27 +345,5 @@ void Timer::pollDueExecutors()
         {
             executor.poll();
         }
-    }
-}
-
-void Timer::notifyOnSleep()
-{
-    const std::vector<SleepHook> hooks = on_sleep_;
-    for (const SleepHook& hook : hooks)
-    {
-        bool still_there = false;
-        for (const SleepHook& current : on_sleep_)
-        {
-            if (current.id == hook.id)
-            {
-                still_there = true;
-                break;
-            }
-        }
-        if (!still_there || !hook.fn)
-        {
-            continue;
-        }
-        hook.fn(hook.id);
     }
 }

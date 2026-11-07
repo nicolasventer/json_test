@@ -23,10 +23,6 @@ public:
 
     void sleep(std::chrono::milliseconds duration);
 
-    std::size_t addOnSleep(std::function<void(std::size_t)> callback);
-    std::size_t addOnSleep(std::function<void()> callback);
-    void removeOnSleep(std::size_t id);
-
     class Executor
     {
     public:
@@ -105,19 +101,9 @@ private:
 
     std::chrono::milliseconds nextCheckDelay() const;
     void pollDueExecutors();
-    void notifyOnSleep();
 
     Mode mode_ = Mode::Idle;
     std::chrono::milliseconds virtual_now_{0};
     std::chrono::steady_clock::time_point real_origin_{};
-
-    struct SleepHook
-    {
-        std::size_t id = 0;
-        std::function<void(std::size_t)> fn;
-    };
-
-    std::vector<SleepHook> on_sleep_;
-    std::size_t next_sleep_id_ = 1;
     std::map<std::chrono::milliseconds, std::unique_ptr<Executor>> executors_;
 };

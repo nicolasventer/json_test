@@ -3,9 +3,7 @@
 #include <ostream>
 #include <string>
 
-#define ENUM_OSTREAM_CASE(name) \
-        case name: \
-            return os << #name;
+#include "enum_ostream_case.hpp"
 
 #define ENUM_OSTREAM_FE_1(a1) ENUM_OSTREAM_CASE(a1)
 #define ENUM_OSTREAM_FE_2(a1, a2) ENUM_OSTREAM_CASE(a1) ENUM_OSTREAM_FE_1(a2)

@@ -45,15 +45,9 @@ Sans appel à `startVirtual` ou `startReal`, le minuteur reste inactif et `sleep
 
 `sleep(duration)` est le seul moteur.
 
-En temps virtuel, `virtual_now_` est incrémenté jusqu'à la cible. En temps réel, le thread dort par tranches jusqu'à l'échéance. À chaque pas de contrôle dû, `sleep` interroge les exécuteurs. À la fin, les hooks de `addOnSleep` sont appelés une fois.
+En temps virtuel, `virtual_now_` est incrémenté jusqu'à la cible. En temps réel, le thread dort par tranches jusqu'à l'échéance. À chaque pas de contrôle dû, `sleep` interroge les exécuteurs.
 
 Une durée négative, ou un minuteur encore inactif, ne fait rien.
-
-## Hooks de fin de sleep
-
-`addOnSleep` enregistre une fonction appelée à la fin de chaque `sleep`, sur le thread appelant. La surcharge `void(std::size_t)` reçoit l'identifiant du hook ; la surcharge `void()` l'ignore. `removeOnSleep` retire un hook par cet identifiant.
-
-Ces hooks sont indépendants des tâches d'exécuteur : une tâche part pendant `sleep`, au pas de contrôle, pas à la fin du sommeil.
 
 ## Exécuteurs
 
@@ -80,4 +74,4 @@ tick->release(); // ou laisser tick sortir de portée
 
 ## Destruction
 
-Aucune callback n'est appelée. Le destructeur d'un exécuteur détache chaque `TaskHandle` encore lié, puis détruit ses tâches : le destructeur du handle ne rappelle pas un exécuteur déjà en cours de destruction. Un `unique_ptr<TaskHandle>` qui survivrait au `Timer` ne fait plus rien. Les exécuteurs sont détruits avant les hooks de `addOnSleep`. Toute `Executor&` obtenue via `getExecutor` devient invalide avec le `Timer`.
+Aucune callback n'est appelée. Le destructeur d'un exécuteur détache chaque `TaskHandle` encore lié, puis détruit ses tâches : le destructeur du handle ne rappelle pas un exécuteur déjà en cours de destruction. Un `unique_ptr<TaskHandle>` qui survivrait au `Timer` ne fait plus rien. Toute `Executor&` obtenue via `getExecutor` devient invalide avec le `Timer`.

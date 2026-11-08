@@ -35,6 +35,7 @@ FetchContent_MakeAvailable(cpp-terminal)
 enable_testing()
 
 add_library(json_test
+  src/console_module.cpp
   src/device_logic.cpp
   src/test_module.cpp
   Timer.cpp
@@ -46,12 +47,18 @@ target_include_directories(json_test
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+target_link_libraries(json_test
+  PRIVATE
+    cpp-terminal
+)
+
 add_executable(json_test_app
   src/main.cpp
 )
 
 target_link_libraries(json_test_app
   PRIVATE
+    json_test
     cpp-terminal
 )
 

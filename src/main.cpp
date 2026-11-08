@@ -1,31 +1,55 @@
+#include "async_call.hpp"
+#include "console_module.hpp"
+#include "device_logic.hpp"
+
+#include "cpp-terminal/event.hpp"
 #include "cpp-terminal/exception.hpp"
 #include "cpp-terminal/input.hpp"
 #include "cpp-terminal/iostream.hpp"
 #include "cpp-terminal/key.hpp"
-#include "cpp-terminal/options.hpp"
-#include "cpp-terminal/terminal.hpp"
-#include "cpp-terminal/tty.hpp"
+
+#include <chrono>
+#include <iostream>
 
 int main() {
   try {
-    Term::terminal.setOptions(Term::Option::NoClearScreen, Term::Option::NoSignalKeys,
-                              Term::Option::Cursor, Term::Option::Raw);
-    if (!Term::is_stdin_a_tty()) {
-      Term::cerr << "Le terminal n'est pas un TTY." << std::endl;
-      return 2;
-    }
+    json_test::DeviceLogic logic;
+    json_test::ConsoleModule module{logic};
+    module.Start();
 
-    Term::cout << "Appuyez sur une touche (q pour quitter) :" << std::endl;
-    while (true) {
-      const Term::Event event = Term::read_event();
-      if (event.type() != Term::Event::Type::Key) {
-        continue;
+    auto showKeys = [] {
+      std::cout << R"(a: cmd { "value": "START" })" << std::endl;
+      std::cout << R"(b: config { "interval_ms": 100, "threshold": 30.5 })" << std::endl;
+      std::cout << "échap: quitter" << std::endl;
+      std::cout << "tab: réafficher les touches" << std::endl;
+    };
+    showKeys();
+    AsyncCall keys([] {
+      while (true) {
+        auto event = Term::read_event();
+        if (event.type() == Term::Event::Type::Key) {
+          return Term::Key(event);
+        }
       }
-
-      const Term::Key key(event);
-      Term::cout << key.name() << std::endl;
-      if (key == Term::Key::q) {
-        break;
+    });
+    while (true) {
+      if (auto key = keys.try_get()) {
+        if (*key == Term::Key::Esc) {
+          break;
+        }
+        if (*key == Term::Key::Tab) {
+          showKeys();
+        } else if (*key == Term::Key::a) {
+          std::cout << R"(receive cmd { "value": "START" })" << std::endl;
+          logic.onReceive_cmd(cmd{"START"});
+        } else if (*key == Term::Key::b) {
+          std::cout << R"(receive config { "interval_ms": 100, "threshold": 30.5 })" << std::endl;
+          logic.onReceive_config(config{100, 30.5});
+        } else {
+          std::cout << "receive unknown key '" << key->name() << "'" << std::endl;
+        }
+      } else {
+        module.getTimer().sleep(std::chrono::milliseconds{20});
       }
     }
   } catch (const Term::Exception& error) {

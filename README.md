@@ -30,7 +30,16 @@ Cela produit la bibliothèque `json_test`, l'exécutable `json_test_app` et le b
 .\build\Debug\json_test_app.exe
 ```
 
-Le programme affiche le nom de chaque touche appuyée. `q` quitte.
+Le programme a besoin d'un terminal (TTY) et tourne en temps réel. Au démarrage, il affiche les touches :
+
+- `a` envoie la commande `START`
+- `b` envoie la config (`interval_ms` 100, `threshold` 30.5)
+- Tab réaffiche ces touches
+- Échap quitte
+
+Toute autre touche affiche `receive unknown key` suivi du nom de la touche (`c`, `Space`, `Left Arrow`…), et non de son code numérique.
+
+Les messages `state`, `measure` et `alarm` du dispositif s'affichent sur la sortie standard.
 
 ## Tester
 

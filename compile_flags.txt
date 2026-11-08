@@ -15,3 +15,4 @@
 -Iinclude
 -I.
 -Ibuild/_deps/googletest-src/googletest/include
+-Ibuild/_deps/cpp-terminal-src

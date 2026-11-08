@@ -11,7 +11,7 @@ Projet C++17 qui simule un dispositif et vérifie les messages qu'il émet.
 - CMake 3.16 ou plus récent
 - un compilateur C++17
 
-GoogleTest 1.15.2 est téléchargé par CMake (FetchContent) lors de la première configuration. Cette étape a besoin d'un accès réseau.
+GoogleTest 1.15.2 et [cpp-terminal](https://github.com/jupyter-xeus/cpp-terminal/tree/master) (branche `master`) sont téléchargés par CMake (FetchContent) lors de la première configuration. Cette étape a besoin d'un accès réseau.
 
 ## Compiler
 
@@ -30,7 +30,7 @@ Cela produit la bibliothèque `json_test`, l'exécutable `json_test_app` et le b
 .\build\Debug\json_test_app.exe
 ```
 
-Le programme affiche `3`, le résultat de `json_test::add(1, 2)`.
+Le programme affiche le nom de chaque touche appuyée. `q` quitte.
 
 ## Tester
 
@@ -44,4 +44,4 @@ On peut aussi lancer le binaire directement :
 .\build\tests\Debug\json_test_tests.exe
 ```
 
-`AddTest` et trois tests de `SuiteDispositif` (`DemarrageDuDispositif`, `MesureSousLeSeuil`, `SeuilDepasse`) doivent passer. `ArretDuDispositif` échoue volontairement : le traitement de la commande `STOP` est laissé inactif dans [`src/device_logic.cpp`](src/device_logic.cpp).
+Trois tests de `SuiteDispositif` (`DemarrageDuDispositif`, `MesureSousLeSeuil`, `SeuilDepasse`) doivent passer. `ArretDuDispositif` échoue volontairement : le traitement de la commande `STOP` est laissé inactif dans [`src/device_logic.cpp`](src/device_logic.cpp).

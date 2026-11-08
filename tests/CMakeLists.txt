@@ -1,5 +1,4 @@
 add_executable(json_test_tests
-  json_test_test.cpp
   example1_test.cpp
 )
 

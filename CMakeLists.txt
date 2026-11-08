@@ -19,10 +19,22 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(googletest)
 
+FetchContent_Declare(
+  cpp-terminal
+  URL https://github.com/jupyter-xeus/cpp-terminal/archive/refs/heads/master.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+
+set(CPPTERMINAL_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(CPPTERMINAL_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+set(CPPTERMINAL_ENABLE_DOCS OFF CACHE BOOL "" FORCE)
+set(CPPTERMINAL_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(cpp-terminal)
+
 enable_testing()
 
 add_library(json_test
-  src/json_test.cpp
   src/device_logic.cpp
   src/test_module.cpp
   Timer.cpp
@@ -30,7 +42,6 @@ add_library(json_test
 
 target_include_directories(json_test
   PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
@@ -41,7 +52,7 @@ add_executable(json_test_app
 
 target_link_libraries(json_test_app
   PRIVATE
-    json_test
+    cpp-terminal
 )
 
 add_subdirectory(tests)

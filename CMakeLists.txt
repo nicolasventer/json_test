@@ -35,16 +35,20 @@ FetchContent_MakeAvailable(cpp-terminal)
 enable_testing()
 
 add_library(json_test
-  src/console_module.cpp
+  src/gen/console_module.cpp
   src/device_logic.cpp
-  src/test_module.cpp
-  Timer.cpp
+  src/gen/test_module.cpp
+  libs/timer/Timer.cpp
 )
 
 target_include_directories(json_test
   PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/gen
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/async_call
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/module_expect
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/timer
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/enum_ostream
 )
 
 target_link_libraries(json_test
@@ -53,7 +57,7 @@ target_link_libraries(json_test
 )
 
 add_executable(json_test_app
-  src/main.cpp
+  src/gen/main.cpp
 )
 
 target_link_libraries(json_test_app

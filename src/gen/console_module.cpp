@@ -2,8 +2,6 @@
 
 #include <iostream>
 
-namespace json_test {
-
 ConsoleModule::ConsoleModule(IModuleLogic& logic) : logic_(logic) { logic_.setModule(*this); }
 
 Timer& ConsoleModule::getTimer() { return timer_; }
@@ -23,5 +21,3 @@ void ConsoleModule::send_measure(const measure& message) {
 void ConsoleModule::send_alarm(const alarm& message) {
   std::cout << "alarm " << message.level << ' ' << message.code << std::endl;
 }
-
-}  // namespace json_test

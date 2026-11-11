@@ -3,8 +3,6 @@
 #include "IModule.hpp"
 #include "Timer.hpp"
 
-namespace json_test {
-
 class ConsoleModule : public IModule {
  public:
   explicit ConsoleModule(IModuleLogic& logic);
@@ -21,5 +19,3 @@ class ConsoleModule : public IModule {
   Timer timer_;
   IModuleLogic& logic_;
 };
-
-}  // namespace json_test

@@ -5,8 +5,6 @@
 
 #include <memory>
 
-namespace json_test {
-
 class DeviceLogic : public IModuleLogic {
  public:
   void setModule(IModule& module) override;
@@ -23,5 +21,3 @@ class DeviceLogic : public IModuleLogic {
   int processed_ticks_ = 0;
   std::unique_ptr<Timer::TaskHandle> tick_;
 };
-
-}  // namespace json_test

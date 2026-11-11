@@ -1,5 +1,7 @@
 # ModuleExpect
 
+[English](README.md)
+
 ## Journal des envois
 
 ```cpp
@@ -16,7 +18,7 @@ module.expect.resetExpect();
 const alarm* none = module.expect.rFindSend<alarm>("alarm"); // nullptr
 ```
 
-`json_test::ModuleExpect<Args...>` conserve, dans l'ordre, les envois `{topic, std::variant<Args...>}`. `TestModule` appelle `record` depuis `send_state`, `send_measure` et `send_alarm`. Les tests lisent ce journal.
+`ModuleExpect<Args...>` conserve, dans l'ordre, les envois `{topic, std::variant<Args...>}`. `TestModule` appelle `record` depuis `send_state`, `send_measure` et `send_alarm`. Les tests lisent ce journal.
 
 ## record
 

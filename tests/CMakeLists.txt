@@ -1,5 +1,5 @@
 add_executable(json_test_tests
-  example1_test.cpp
+  ../src/gen/example1_test.cpp
 )
 
 target_link_libraries(json_test_tests

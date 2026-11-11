@@ -1,5 +1,7 @@
 # Timer
 
+[English](README.md)
+
 ## Temps virtuel
 
 ```cpp

@@ -13,8 +13,8 @@
 
 int main() {
   try {
-    json_test::DeviceLogic logic;
-    json_test::ConsoleModule module{logic};
+    DeviceLogic logic;
+    ConsoleModule module{logic};
     module.Start();
 
     auto showKeys = [] {

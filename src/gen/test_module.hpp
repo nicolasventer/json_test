@@ -4,8 +4,6 @@
 #include "Timer.hpp"
 #include "module_expect.hpp"
 
-namespace json_test {
-
 class TestModule : public IModule {
  public:
   ModuleExpect<state, measure, alarm> expect;
@@ -25,5 +23,3 @@ class TestModule : public IModule {
   IModuleLogic& logic_;
   bool use_virtual_time_;
 };
-
-}  // namespace json_test

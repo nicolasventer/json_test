@@ -1,7 +1,5 @@
 #include "test_module.hpp"
 
-namespace json_test {
-
 TestModule::TestModule(IModuleLogic& logic, bool useVirtualTime)
     : logic_(logic), use_virtual_time_(useVirtualTime) {
   logic_.setModule(*this);
@@ -24,5 +22,3 @@ void TestModule::send_state(const state& message) { expect.record("state", messa
 void TestModule::send_measure(const measure& message) { expect.record("measure", message); }
 
 void TestModule::send_alarm(const alarm& message) { expect.record("alarm", message); }
-
-}  // namespace json_test

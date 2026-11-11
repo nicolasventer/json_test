@@ -12,6 +12,10 @@
 -Wno-gnu-zero-variadic-macro-arguments
 -Wno-c2y-extensions
 -Isrc
--I.
+-Isrc/gen
+-Ilibs/async_call
+-Ilibs/module_expect
+-Ilibs/timer
+-Ilibs/enum_ostream
 -Ibuild/_deps/googletest-src/googletest/include
 -Ibuild/_deps/cpp-terminal-src

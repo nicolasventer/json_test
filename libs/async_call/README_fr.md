@@ -1,5 +1,7 @@
 # AsyncCall
 
+[English](README.md)
+
 ## Sonder un appel bloquant
 
 ```cpp

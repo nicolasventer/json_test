@@ -1,7 +1,5 @@
 #include "device_logic.hpp"
 
-namespace json_test {
-
 void DeviceLogic::setModule(IModule& module) { module_ = &module; }
 
 void DeviceLogic::onReceive_cmd(const cmd& message) {
@@ -50,5 +48,3 @@ void DeviceLogic::onTick(int tick_ms) {
     }
   }
 }
-
-}  // namespace json_test

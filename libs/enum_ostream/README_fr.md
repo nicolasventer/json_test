@@ -2,29 +2,71 @@
 
 [English](README.md)
 
-## Nom sur le flux
+## Noms affichés
+
+[`example.cpp`](example.cpp) :
 
 ```cpp
-enum EStateStatus
+#include "enum_ostream.hpp"
+
+#include <iostream>
+
+enum EMode
 {
-    INIT,
-    RUNNING,
-    CLOSED
+	IDLE,
+	BUSY
 };
 
-ENUM_OSTREAM(EStateStatus, INIT, RUNNING, CLOSED)
+ENUM_OSTREAM(EMode, IDLE, BUSY)
 
-std::cout << RUNNING << '\n'; // RUNNING
+enum class EStateStatus
+{
+	INIT,
+	RUNNING,
+	CLOSED
+};
+
+ENUM_OSTREAM(EStateStatus, EStateStatus::INIT, EStateStatus::RUNNING, EStateStatus::CLOSED)
+
+enum class EAlarmLevel
+{
+	INFO,
+	WARN,
+	FAULT
+};
+
+ENUM_CLASS_OSTREAM(EAlarmLevel, INFO, WARN, FAULT)
+
+int main()
+{
+	std::cout << IDLE << '\n';
+	std::cout << BUSY << '\n';
+	std::cout << EStateStatus::INIT << '\n';
+	std::cout << EStateStatus::RUNNING << '\n';
+	std::cout << EStateStatus::CLOSED << '\n';
+	std::cout << EAlarmLevel::INFO << '\n';
+	std::cout << EAlarmLevel::WARN << '\n';
+	std::cout << EAlarmLevel::FAULT << '\n';
+	std::cout << static_cast<EAlarmLevel>(99) << "end\n";
+}
 ```
 
-`ENUM_OSTREAM(Enum, ...)` définit `operator<<` pour cet enum. Le flux reçoit le nom de l'énumérateur, tel qu'il est écrit dans la macro, et non sa valeur numérique.
+```text
+IDLE
+BUSY
+EStateStatus::INIT
+EStateStatus::RUNNING
+EStateStatus::CLOSED
+INFO
+WARN
+FAULT
+end
+```
 
-[`src/gen/IModule.hpp`](../../src/gen/IModule.hpp) l'utilise pour `EStateStatus` et `EAlarmLevel`. [`src/gen/console_module.cpp`](../../src/gen/console_module.cpp) affiche ainsi `state RUNNING 100` et `alarm WARN 42`. GoogleTest s'en sert aussi pour montrer ces valeurs quand une attente échoue.
+Chaque argument est affiché tel qu'il est écrit. Il sert aussi à retrouver la valeur : tel quel pour `ENUM_OSTREAM`, précédé du nom de l'enum pour `ENUM_CLASS_OSTREAM`.
 
-La macro se place juste après l'enum, dans le même espace de noms. Les noms doivent y être visibles. Ici, `INIT`, `RUNNING` et `CLOSED` sont ceux de l'enum non porté. L'en-tête est [`enum_ostream.hpp`](enum_ostream.hpp).
+Pour un `enum`, les deux macros conviennent. `ENUM_OSTREAM` laisse le préfixe au choix : `IDLE` affiche `IDLE`, `EMode::IDLE` affiche `EMode::IDLE`.
 
-## Liste
+Pour un `enum class`, les deux macros conviennent, mais le préfixe n'est plus au choix. `ENUM_OSTREAM` attend `EStateStatus::INIT` et l'affiche. `ENUM_CLASS_OSTREAM` attend `INFO` et affiche `INFO`.
 
-La liste compte de 1 à 8 noms. Chaque nom est une branche du `switch` et le texte affiché. L'ordre de la liste ne change pas l'affichage.
-
-Une valeur absente de la liste n'écrit rien : le `switch` se termine et le flux est renvoyé tel quel. Cela vaut pour un énumérateur oublié, ou pour un entier converti vers l'enum qui ne correspond à aucun cas.
+La macro se place juste après l'enum, dans le même espace de noms. De 1 à 8 noms ; l'ordre ne change rien. Une valeur absente de la liste n'écrit rien.

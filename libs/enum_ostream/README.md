@@ -2,29 +2,71 @@
 
 [Français](README_fr.md)
 
-## Name on the stream
+## Printed names
+
+[`example.cpp`](example.cpp):
 
 ```cpp
-enum EStateStatus
+#include "enum_ostream.hpp"
+
+#include <iostream>
+
+enum EMode
 {
-    INIT,
-    RUNNING,
-    CLOSED
+	IDLE,
+	BUSY
 };
 
-ENUM_OSTREAM(EStateStatus, INIT, RUNNING, CLOSED)
+ENUM_OSTREAM(EMode, IDLE, BUSY)
 
-std::cout << RUNNING << '\n'; // RUNNING
+enum class EStateStatus
+{
+	INIT,
+	RUNNING,
+	CLOSED
+};
+
+ENUM_OSTREAM(EStateStatus, EStateStatus::INIT, EStateStatus::RUNNING, EStateStatus::CLOSED)
+
+enum class EAlarmLevel
+{
+	INFO,
+	WARN,
+	FAULT
+};
+
+ENUM_CLASS_OSTREAM(EAlarmLevel, INFO, WARN, FAULT)
+
+int main()
+{
+	std::cout << IDLE << '\n';
+	std::cout << BUSY << '\n';
+	std::cout << EStateStatus::INIT << '\n';
+	std::cout << EStateStatus::RUNNING << '\n';
+	std::cout << EStateStatus::CLOSED << '\n';
+	std::cout << EAlarmLevel::INFO << '\n';
+	std::cout << EAlarmLevel::WARN << '\n';
+	std::cout << EAlarmLevel::FAULT << '\n';
+	std::cout << static_cast<EAlarmLevel>(99) << "end\n";
+}
 ```
 
-`ENUM_OSTREAM(Enum, ...)` defines `operator<<` for that enum. The stream receives the enumerator name, as written in the macro, and not its numeric value.
+```text
+IDLE
+BUSY
+EStateStatus::INIT
+EStateStatus::RUNNING
+EStateStatus::CLOSED
+INFO
+WARN
+FAULT
+end
+```
 
-[`src/gen/IModule.hpp`](../../src/gen/IModule.hpp) uses it for `EStateStatus` and `EAlarmLevel`. [`src/gen/console_module.cpp`](../../src/gen/console_module.cpp) thus prints `state RUNNING 100` and `alarm WARN 42`. GoogleTest also uses it to show these values when an expectation fails.
+Each argument is displayed as written. It also selects the value: as written for `ENUM_OSTREAM`, prefixed with the enum name for `ENUM_CLASS_OSTREAM`.
 
-The macro is placed just after the enum, in the same namespace. The names must be visible there. Here, `INIT`, `RUNNING`, and `CLOSED` are those of the unscoped enum. The header is [`enum_ostream.hpp`](enum_ostream.hpp).
+For an `enum`, either macro works. `ENUM_OSTREAM` leaves the prefix optional: `IDLE` displays `IDLE`, `EMode::IDLE` displays `EMode::IDLE`.
 
-## List
+For an `enum class`, either macro works, but the prefix is no longer optional. `ENUM_OSTREAM` expects `EStateStatus::INIT` and displays it. `ENUM_CLASS_OSTREAM` expects `INFO` and displays `INFO`.
 
-The list holds from 1 to 8 names. Each name is a `switch` branch and the printed text. The order of the list does not change the output.
-
-A value absent from the list writes nothing: the `switch` ends and the stream is returned unchanged. This applies to a forgotten enumerator, or to an integer converted to the enum that matches no case.
+Place the macro just after the enum, in the same namespace. From 1 to 8 names; the order does not matter. A value absent from the list writes nothing.

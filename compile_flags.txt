@@ -14,7 +14,7 @@
 -Isrc
 -Isrc/gen
 -Ilibs/async_call
--Ilibs/module_expect
+-Ilibs/variant_map
 -Ilibs/timer
 -Ilibs/enum_ostream
 -Ibuild/_deps/googletest-src/googletest/include

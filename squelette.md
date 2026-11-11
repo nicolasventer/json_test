@@ -27,7 +27,7 @@ module.Start();
 
 - [`libs/timer/Timer.hpp`](libs/timer/Timer.hpp), [`libs/timer/Timer.cpp`](libs/timer/Timer.cpp)
 - [`libs/async_call/async_call.hpp`](libs/async_call/async_call.hpp)
-- [`libs/module_expect/module_expect.hpp`](libs/module_expect/module_expect.hpp)
+- [`libs/variant_map/variant_map.hpp`](libs/variant_map/variant_map.hpp)
 - [`libs/enum_ostream/enum_ostream.hpp`](libs/enum_ostream/enum_ostream.hpp)
 
 ## Fichiers à implémenter

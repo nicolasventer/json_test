@@ -17,8 +17,8 @@ void TestModule::Start() {
   }
 }
 
-void TestModule::send_state(const state& message) { expect.record("state", message); }
+void TestModule::send_state(const state& message) { expect["state"] = message; }
 
-void TestModule::send_measure(const measure& message) { expect.record("measure", message); }
+void TestModule::send_measure(const measure& message) { expect["measure"] = message; }
 
-void TestModule::send_alarm(const alarm& message) { expect.record("alarm", message); }
+void TestModule::send_alarm(const alarm& message) { expect["alarm"] = message; }

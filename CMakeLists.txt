@@ -46,7 +46,7 @@ target_include_directories(json_test
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/gen
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/async_call
-    ${CMAKE_CURRENT_SOURCE_DIR}/libs/module_expect
+    ${CMAKE_CURRENT_SOURCE_DIR}/libs/variant_map
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/timer
     ${CMAKE_CURRENT_SOURCE_DIR}/libs/enum_ostream
 )

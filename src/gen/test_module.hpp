@@ -2,11 +2,11 @@
 
 #include "IModule.hpp"
 #include "Timer.hpp"
-#include "module_expect.hpp"
+#include "variant_map.hpp"
 
 class TestModule : public IModule {
  public:
-  ModuleExpect<state, measure, alarm> expect;
+  VariantMap<state, measure, alarm> expect;
 
   TestModule(IModuleLogic& logic, bool useVirtualTime);
 

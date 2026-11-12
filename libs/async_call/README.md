@@ -76,3 +76,15 @@ Between that rethrow and the next poll, the thread waits. Nothing is running.
 The destructor requests a stop, wakes the thread, and joins it. If `F` is running, it waits until `F` returns. A blocking call, such as `std::getline` on `std::cin`, is not cancelled.
 
 In the example, the name is consumed before `main` returns. The thread then waits for the stop, and the destructor returns without reading another line. Destroying `AsyncCall` while a read is still in progress blocks until `F` returns.
+
+## std::future
+
+`std::future` is not used. It carries a single result. `AsyncCall` repeats a blocking call on one thread and polls it without blocking.
+
+|             | AsyncCall                                                                                             | std::future                                                                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Thread      | The constructor's thread serves every call. It waits between results.                                 | `std::async(std::launch::async)` starts a new execution on every call.                                                                      |
+| Result      | `try_get()` returns at once, consumes the value, and the next poll arms the call again.               | `get()` blocks and consumes the state. The next call needs a new `future`. `wait_for(0)` polls without blocking.                            |
+| Arming      | The `try_get()` that arms always returns `std::nullopt`. `F` starts after the mutex is released.      | `wait_for(0)` right after `std::async` can already see the result when `F` returns at once.                                                 |
+| Policy      | `F` runs on the object's thread.                                                                      | `std::launch::deferred` runs `F` on the thread that waits. The default policy `async \| deferred` leaves that choice to the implementation. |
+| Destruction | The destructor joins that thread. A read still in progress, such as `std::getline`, is not cancelled. | The destructor of a `future` from `std::async` waits for the task if `get` or `wait` was not called. The read in progress is not cancelled. |

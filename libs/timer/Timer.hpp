@@ -6,9 +6,14 @@
 #include <memory>
 #include <vector>
 
+// Schedules repeating callbacks. Time is either virtual (advanced by sleep) or real (the steady clock).
+// Tasks fire from sleep. Not copyable or movable.
+// Destroying a TaskHandle cancels its task.
 class Timer
 {
 public:
+	// Cancels its task when destroyed or when release() is called.
+	// executeAt keeps this internally; executeAtEx returns it to the caller.
 	class TaskHandle
 	{
 	public:
@@ -36,18 +41,29 @@ public:
 	Timer(Timer&&) = delete;
 	Timer& operator=(Timer&&) = delete;
 
+	// Switches to virtual time and resets it to 0.
 	void startVirtual();
+	// Switches to real time. The origin is steady_clock::now().
 	void startReal();
 
+	// Elapsed virtual time, or time since startReal.
+	// Stays 0 in Idle.
 	std::chrono::milliseconds now() const;
 
+	// Advances virtual time, or blocks, until duration has passed, firing due tasks along the way.
+	// No-op in Idle or when duration is negative.
 	void sleep(std::chrono::milliseconds duration);
 
+	// Repeating task owned by the timer. First due at now() + period.
+	// The callback can cancel through the handle.
+	// Periods of 0 or less become 1 ms.
 	void executeAt(std::chrono::milliseconds period, std::function<void(const TaskHandle&)> callback);
+	// Repeating task owned by the timer. First due at now() + period.
+	// Periods of 0 or less become 1 ms.
 	void executeAt(std::chrono::milliseconds period, std::function<void()> callback);
 
-	// Ignoring the return value destroys the temporary at the end of the
-	// statement, which removes the callback immediately.
+	// The caller owns the handle. The task lives until that handle is destroyed.
+	// Ignoring the return value destroys the temporary at the end of the statement, which removes the callback immediately.
 	[[nodiscard]] std::unique_ptr<TaskHandle> executeAtEx(std::chrono::milliseconds period, std::function<void()> callback);
 
 private:

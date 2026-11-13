@@ -8,6 +8,9 @@
 #include <type_traits>
 #include <utility>
 
+// Runs a callable on a background thread, one call at a time.
+// try_get either returns the finished result or starts the next call.
+// The destructor stops the worker and joins it. Not copyable or movable.
 template <typename F> class AsyncCall
 {
 public:
@@ -36,11 +39,14 @@ public:
 	AsyncCall(AsyncCall&&) = delete;
 	AsyncCall& operator=(AsyncCall&&) = delete;
 
+	// Non-blocking poll. Returns the finished call's value, or rethrows the exception it threw.
+	// If nothing is ready, starts a call when none is in flight and returns nullopt.
 	std::optional<result_type> try_get()
 	{
 		std::lock_guard lock(mutex_);
 		if (ready_)
 		{
+			// Consume the finished call: rethrow its exception, or return its value.
 			ready_ = false;
 			if (error_)
 			{
@@ -54,6 +60,7 @@ public:
 		}
 		if (!running_)
 		{
+			// No call in flight: ask the worker to start one.
 			running_ = true;
 			start_ = true;
 			cv_.notify_one();
@@ -62,19 +69,24 @@ public:
 	}
 
 private:
+	// Worker loop. Waits until try_get requests a call or the destructor requests stop.
+	// Invokes function_ outside the lock, then publishes the result or exception for the next try_get.
 	void run()
 	{
 		std::unique_lock lock(mutex_);
 		while (true)
 		{
+			// Wake when a call is requested (start_) or the destructor asks to stop.
 			cv_.wait(lock, [this] { return stop_ || start_; });
 			if (stop_)
 			{
+				// Destructor is tearing the call down.
 				return;
 			}
 			start_ = false;
 			lock.unlock();
 
+			// Run the function without holding the mutex.
 			std::optional<result_type> result;
 			std::exception_ptr error;
 			try
@@ -87,6 +99,7 @@ private:
 			}
 
 			lock.lock();
+			// Publish the result or exception so the next try_get can take it.
 			result_ = std::move(result);
 			error_ = error;
 			running_ = false;

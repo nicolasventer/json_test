@@ -20,6 +20,7 @@ Timer::TaskHandle::~TaskHandle() { release(); }
 
 void Timer::TaskHandle::release() const
 {
+	// Detach this handle, drop it from live_handles_, then cancel the task.
 	if (timer_ == nullptr)
 	{
 		return;
@@ -39,6 +40,7 @@ Timer::TaskHandle::TaskHandle(Timer& timer, std::size_t id) : timer_(&timer), id
 
 Timer::~Timer()
 {
+	// Clear live handles so they do not cancel into a destroyed timer.
 	for (TaskHandle* handle : live_handles_)
 	{
 		if (handle == nullptr)
@@ -83,6 +85,7 @@ void Timer::sleep(std::chrono::milliseconds duration)
 
 	if (mode_ == Mode::Virtual)
 	{
+		// Jump virtual_now_ to the next due task or the target, then poll.
 		const auto target = virtual_now_ + duration;
 		while (virtual_now_ < target)
 		{
@@ -104,6 +107,7 @@ void Timer::sleep(std::chrono::milliseconds duration)
 	}
 	else
 	{
+		// Sleep the thread in slices until the next task or the deadline.
 		const auto deadline = std::chrono::steady_clock::now() + duration;
 		const auto deadline_ms = now() + duration;
 		for (;;)
@@ -137,6 +141,7 @@ void Timer::sleep(std::chrono::milliseconds duration)
 
 void Timer::executeAt(std::chrono::milliseconds period, std::function<void(const TaskHandle&)> callback)
 {
+	// The timer stores the handle, so the task stays until cancel or destruction.
 	period = normalizePeriod(period);
 
 	const std::size_t id = next_id_++;
@@ -159,6 +164,7 @@ void Timer::executeAt(std::chrono::milliseconds period, std::function<void()> ca
 
 std::unique_ptr<Timer::TaskHandle> Timer::executeAtEx(std::chrono::milliseconds period, std::function<void()> callback)
 {
+	// The returned handle is not stored in the task. Destroying it cancels.
 	period = normalizePeriod(period);
 
 	const std::size_t id = next_id_++;
@@ -182,6 +188,7 @@ std::unique_ptr<Timer::TaskHandle> Timer::executeAtEx(std::chrono::milliseconds 
 
 std::chrono::milliseconds Timer::timeUntilNext(std::chrono::milliseconds current) const
 {
+	// Returns milliseconds::max() when nothing is scheduled, so real sleep waits out the whole remaining duration.
 	bool found = false;
 	std::chrono::milliseconds earliest{0};
 	for (const Task& task : tasks_)
@@ -208,6 +215,7 @@ void Timer::poll() { pollAt(now()); }
 
 void Timer::pollAt(std::chrono::milliseconds current)
 {
+	// Collect tasks that are due, push each next forward by period, invoke them, then reap cancelled tasks.
 	for (;;)
 	{
 		std::vector<std::size_t> due;

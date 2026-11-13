@@ -29,11 +29,11 @@ TEST_F(SuiteDispositif, DemarrageDuDispositif) {
   data_in_2.value = "START";
   logic.onReceive_cmd(data_in_2);
 
-  module.getTimer().sleep(std::chrono::milliseconds{100});
+  module.getTimer().sleep(std::chrono::milliseconds(100));
 
   const state* data_out_1 = module.expect.find_as<state>("state");
   ASSERT_NE(data_out_1, nullptr) << "aucun message \"state\" envoyé";
-  EXPECT_EQ(data_out_1->status, RUNNING);
+  EXPECT_EQ(data_out_1->status, EStateStatus::RUNNING);
   EXPECT_GE(data_out_1->uptime_ms, 100);
 
   module.expect.clear();
@@ -53,11 +53,11 @@ TEST_F(SuiteDispositif, MesureSousLeSeuil) {
   data_in_2.value = "START";
   logic.onReceive_cmd(data_in_2);
 
-  module.getTimer().sleep(std::chrono::milliseconds{100});
+  module.getTimer().sleep(std::chrono::milliseconds(100));
 
   const measure* data_out_1 = module.expect.find_as<measure>("measure");
   ASSERT_NE(data_out_1, nullptr) << "aucun message \"measure\" envoyé";
-  EXPECT_GE(data_out_1->temperature, 20.0);
+  EXPECT_GE(data_out_1->temperature, 20);
   EXPECT_LT(data_out_1->humidity, 80);
 
   const measure* data_out_2 = module.expect.find_as<measure>("measure");
@@ -77,16 +77,16 @@ TEST_F(SuiteDispositif, SeuilDepasse) {
   data_in_2.value = "START";
   logic.onReceive_cmd(data_in_2);
 
-  module.getTimer().sleep(std::chrono::milliseconds{200});
+  module.getTimer().sleep(std::chrono::milliseconds(200));
 
   const alarm* data_out_1 = module.expect.find_as<alarm>("alarm");
   ASSERT_NE(data_out_1, nullptr) << "aucun message \"alarm\" envoyé";
-  EXPECT_EQ(data_out_1->level, WARN);
+  EXPECT_EQ(data_out_1->level, EAlarmLevel::WARN);
   EXPECT_EQ(data_out_1->code, 42);
 
   const state* data_out_2 = module.expect.find_as<state>("state");
   ASSERT_NE(data_out_2, nullptr) << "aucun message \"state\" envoyé";
-  EXPECT_EQ(data_out_2->status, CLOSED);
+  EXPECT_EQ(data_out_2->status, EStateStatus::CLOSED);
 }
 
 TEST_F(SuiteDispositif, ArretDuDispositif) {
@@ -101,7 +101,7 @@ TEST_F(SuiteDispositif, ArretDuDispositif) {
   data_in_2.value = "START";
   logic.onReceive_cmd(data_in_2);
 
-  module.getTimer().sleep(std::chrono::milliseconds{100});
+  module.getTimer().sleep(std::chrono::milliseconds(100));
 
   cmd data_in_3;
   data_in_3.value = "STOP";
@@ -109,7 +109,7 @@ TEST_F(SuiteDispositif, ArretDuDispositif) {
 
   const state* data_out_1 = module.expect.find_as<state>("state");
   ASSERT_NE(data_out_1, nullptr) << "aucun message \"state\" envoyé";
-  EXPECT_EQ(data_out_1->status, CLOSED);
+  EXPECT_EQ(data_out_1->status, EStateStatus::CLOSED);
 }
 
 }  // namespace

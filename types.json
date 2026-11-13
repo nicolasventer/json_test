@@ -1,0 +1,7 @@
+{
+	"config": { "topicList": ["/config"], "enumFieldMap": {} },
+	"cmd": { "topicList": ["/cmd"], "enumFieldMap": {} },
+	"state": { "topicList": ["/state"], "enumFieldMap": { "status": "EStateStatus" } },
+	"measure": { "topicList": ["/measure"], "enumFieldMap": {} },
+	"alarm": { "topicList": ["/alarm"], "enumFieldMap": { "level": "EAlarmLevel" } }
+}

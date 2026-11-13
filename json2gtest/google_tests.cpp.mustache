@@ -1,0 +1,59 @@
+#include "IModule.hpp"
+#include "Timer.hpp"
+#include "device_logic.hpp"
+#include "test_module.hpp"
+
+#include <gtest/gtest.h>
+
+#include <chrono>
+
+namespace {
+
+class {{suite_class}} : public testing::Test {
+ protected:
+  DeviceLogic logic;
+  TestModule module{logic, {{use_virtual_time}}};
+
+  void SetUp() override { module.Start(); }
+};
+
+{{#tests}}
+TEST_F({{suite_class}}, {{method}}) {
+{{#steps}}
+{{#blank_before}}
+
+{{/blank_before}}
+{{#is_reset}}
+  module.expect.clear();
+{{/is_reset}}
+{{#is_receive}}
+  {{type_name}} {{var_name}};
+{{#fields}}
+  {{var_name}}.{{path}} = {{value}};
+{{/fields}}
+  logic.onReceive_{{type_name}}({{var_name}});
+{{/is_receive}}
+{{#is_sleep}}
+  module.getTimer().sleep(std::chrono::milliseconds({{ms}}));
+{{/is_sleep}}
+{{#is_expect_send}}
+  const {{type_name}}* {{var_name}} = module.expect.find_as<{{type_name}}>("{{topic_key}}");
+  ASSERT_NE({{var_name}}, nullptr) << "aucun message \"{{topic_key}}\" envoyé";
+{{#fields}}
+{{#epsilon}}
+  EXPECT_NEAR({{var_name}}->{{path}}, {{value}}, {{epsilon}});
+{{/epsilon}}
+{{^epsilon}}
+  EXPECT_{{operator}}({{var_name}}->{{path}}, {{value}});
+{{/epsilon}}
+{{/fields}}
+{{/is_expect_send}}
+{{#is_expect_not_send}}
+  const {{type_name}}* {{var_name}} = module.expect.find_as<{{type_name}}>("{{topic_key}}");
+  EXPECT_EQ({{var_name}}, nullptr) << "un message \"{{topic_key}}\" inattendu";
+{{/is_expect_not_send}}
+{{/steps}}
+}
+
+{{/tests}}
+}  // namespace

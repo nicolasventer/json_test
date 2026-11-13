@@ -6,45 +6,45 @@
       "name": "Démarrage du dispositif",
       "steps": [
         ["reset_expect"],
-        ["receive", "config", { "interval_ms": 100, "threshold": 30.5 }],
-        ["receive", "cmd", { "value": "START" }],
+        ["receive", "/config", { "interval_ms": 100, "threshold": 30.5 }],
+        ["receive", "/cmd", { "value": "START" }],
         ["sleep_ms", 100],
-        ["expect_send", "state", { "status": "RUNNING", "uptime_ms": [">=", 100] }],
+        ["expect_send", "/state", { "status": "RUNNING", "uptime_ms": [">=", 100] }],
         ["reset_expect"],
-        ["expect_not_send", "alarm"]
+        ["expect_not_send", "/alarm"]
       ]
     },
     {
       "name": "Mesure sous le seuil",
       "steps": [
         ["reset_expect"],
-        ["receive", "config", { "interval_ms": 100, "threshold": 30.5 }],
-        ["receive", "cmd", { "value": "START" }],
+        ["receive", "/config", { "interval_ms": 100, "threshold": 30.5 }],
+        ["receive", "/cmd", { "value": "START" }],
         ["sleep_ms", 100],
-        ["expect_send", "measure", { "temperature": [">=", 20.0], "humidity": ["<", 80] }],
-        ["expect_send", "measure", { "temperature": ["<", 30.5] }]
+        ["expect_send", "/measure", { "temperature": [">=", 20.0], "humidity": ["<", 80] }],
+        ["expect_send", "/measure", { "temperature": ["<", 30.5] }]
       ]
     },
     {
       "name": "Seuil dépassé",
       "steps": [
         ["reset_expect"],
-        ["receive", "config", { "interval_ms": 100, "threshold": 30.5 }],
-        ["receive", "cmd", { "value": "START" }],
+        ["receive", "/config", { "interval_ms": 100, "threshold": 30.5 }],
+        ["receive", "/cmd", { "value": "START" }],
         ["sleep_ms", 200],
-        ["expect_send", "alarm", { "level": "WARN", "code": 42 }],
-        ["expect_send", "state", { "status": "CLOSED" }]
+        ["expect_send", "/alarm", { "level": "WARN", "code": 42 }],
+        ["expect_send", "/state", { "status": "CLOSED" }]
       ]
     },
     {
       "name": "Arrêt du dispositif",
       "steps": [
         ["reset_expect"],
-        ["receive", "config", { "interval_ms": 100, "threshold": 30.5 }],
-        ["receive", "cmd", { "value": "START" }],
+        ["receive", "/config", { "interval_ms": 100, "threshold": 30.5 }],
+        ["receive", "/cmd", { "value": "START" }],
         ["sleep_ms", 100],
-        ["receive", "cmd", { "value": "STOP" }],
-        ["expect_send", "state", { "status": "CLOSED" }]
+        ["receive", "/cmd", { "value": "STOP" }],
+        ["expect_send", "/state", { "status": "CLOSED" }]
       ]
     }
   ]

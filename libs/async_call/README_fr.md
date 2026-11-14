@@ -79,12 +79,8 @@ Dans l'exemple, le nom est consommé avant la fin de `main`. Le thread attend al
 
 ## std::future
 
-`std::future` n'est pas utilisé. Il porte un seul résultat. `AsyncCall` répète un appel bloquant sur un même thread et le sonde sans bloquer.
+`AsyncCall` et `std::future` ont les mêmes fonctionnalités : récupérer le résultat sans bloquer, et relancer les exceptions sur le thread appelant.
 
-|             | AsyncCall                                                                                        | std::future                                                                                                                                     |
-| ----------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Thread      | Le thread du constructeur sert chaque appel. Il attend entre deux résultats.                     | `std::async(std::launch::async)` ouvre une exécution neuve à chaque appel.                                                                      |
-| Résultat    | `try_get()` revient tout de suite, consomme la valeur, et le sondage suivant réarme.             | `get()` bloque et consomme l'état. L'appel suivant demande un nouveau `future`. `wait_for(0)` sonde sans bloquer.                               |
-| Armement    | Le `try_get()` qui arme renvoie toujours `std::nullopt`. `F` part après le relâchement du mutex. | `wait_for(0)` juste après `std::async` peut déjà voir le résultat si `F` revient tout de suite.                                                 |
-| Politique   | `F` tourne sur le thread de l'objet.                                                             | `std::launch::deferred` exécute `F` sur le thread qui attend. La politique par défaut `async \| deferred` laisse ce choix à l'implémentation.   |
-| Destruction | Le destructeur joint ce thread. Une lecture en cours, comme `std::getline`, n'est pas annulée.   | Le destructeur d'un `future` issu de `std::async` attend la tâche si `get` ou `wait` n'a pas été appelé. La lecture en cours n'est pas annulée. |
+**L'implémentation custom est imposée par une différence majeure : `std::async` crée un nouveau thread à chaque appel.**
+
+Ce modèle ne convient pas à l'usage de la bibliothèque : de nombreux appels sont prévus, et chacun ouvrirait un thread.

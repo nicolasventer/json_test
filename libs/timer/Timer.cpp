@@ -1,8 +1,13 @@
 #include "Timer.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <cstddef>
+#include <functional>
+#include <memory>
 #include <thread>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -27,7 +32,7 @@ void Timer::TaskHandle::release() const
 	}
 
 	Timer* const timer = timer_;
-	const std::size_t id = id_;
+	const size_t id = id_;
 	timer_ = nullptr;
 	id_ = 0;
 
@@ -36,7 +41,7 @@ void Timer::TaskHandle::release() const
 	timer->cancel(id);
 }
 
-Timer::TaskHandle::TaskHandle(Timer& timer, std::size_t id) : timer_(&timer), id_(id) { timer.live_handles_.push_back(this); }
+Timer::TaskHandle::TaskHandle(Timer& timer, size_t id) : timer_(&timer), id_(id) { timer.live_handles_.push_back(this); }
 
 Timer::~Timer()
 {
@@ -144,10 +149,16 @@ void Timer::executeAt(std::chrono::milliseconds period, std::function<void(const
 	// The timer stores the handle, so the task stays until cancel or destruction.
 	period = normalizePeriod(period);
 
-	const std::size_t id = next_id_++;
+	const size_t id = next_id_++;
 	auto handle = std::unique_ptr<TaskHandle>(new TaskHandle(*this, id));
 	TaskHandle* const raw = handle.get();
-	tasks_.push_back(Task{id, period, now() + period, std::move(callback), std::move(handle), raw, false});
+	tasks_.push_back(Task{.id = id,
+		.period = period,
+		.next = now() + period,
+		.fn = std::move(callback),
+		.owned = std::move(handle),
+		.handle = raw,
+		.cancelled = false});
 }
 
 void Timer::executeAt(std::chrono::milliseconds period, std::function<void()> callback)
@@ -167,22 +178,23 @@ std::unique_ptr<Timer::TaskHandle> Timer::executeAtEx(std::chrono::milliseconds 
 	// The returned handle is not stored in the task. Destroying it cancels.
 	period = normalizePeriod(period);
 
-	const std::size_t id = next_id_++;
+	const size_t id = next_id_++;
 	auto handle = std::unique_ptr<TaskHandle>(new TaskHandle(*this, id));
 	TaskHandle* const raw = handle.get();
-	tasks_.push_back(Task{id,
-		period,
-		now() + period,
-		[callback = std::move(callback)](const TaskHandle&)
+	tasks_.push_back(Task{.id = id,
+		.period = period,
+		.next = now() + period,
+		.fn =
+			[callback = std::move(callback)](const TaskHandle&)
 		{
 			if (callback)
 			{
 				callback();
 			}
 		},
-		std::unique_ptr<TaskHandle>{},
-		raw,
-		false});
+		.owned = std::unique_ptr<TaskHandle>{},
+		.handle = raw,
+		.cancelled = false});
 	return handle;
 }
 
@@ -218,7 +230,7 @@ void Timer::pollAt(std::chrono::milliseconds current)
 	// Collect tasks that are due, push each next forward by period, invoke them, then reap cancelled tasks.
 	for (;;)
 	{
-		std::vector<std::size_t> due;
+		std::vector<size_t> due;
 		for (Task& task : tasks_)
 		{
 			if (task.cancelled)
@@ -236,7 +248,7 @@ void Timer::pollAt(std::chrono::milliseconds current)
 			break;
 		}
 
-		for (const std::size_t id : due)
+		for (const size_t id : due)
 		{
 			Task* const task = find(id);
 			if (task == nullptr || task->cancelled || !task->fn || task->handle == nullptr)
@@ -253,7 +265,7 @@ void Timer::pollAt(std::chrono::milliseconds current)
 	reap();
 }
 
-void Timer::cancel(std::size_t id)
+void Timer::cancel(size_t id)
 {
 	Task* const task = find(id);
 	if (task == nullptr)
@@ -269,7 +281,7 @@ void Timer::reap()
 	tasks_.erase(std::remove_if(tasks_.begin(), tasks_.end(), [](const Task& task) { return task.cancelled; }), tasks_.end());
 }
 
-Timer::Task* Timer::find(std::size_t id)
+Timer::Task* Timer::find(size_t id)
 {
 	for (Task& task : tasks_)
 	{

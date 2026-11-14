@@ -27,10 +27,10 @@ public:
 
 	private:
 		friend class Timer;
-		TaskHandle(Timer& timer, std::size_t id);
+		TaskHandle(Timer& timer, size_t id);
 
 		mutable Timer* timer_ = nullptr;
-		mutable std::size_t id_ = 0;
+		mutable size_t id_ = 0;
 	};
 
 	Timer() = default;
@@ -48,7 +48,7 @@ public:
 
 	// Elapsed virtual time, or time since startReal.
 	// Stays 0 in Idle.
-	std::chrono::milliseconds now() const;
+	[[nodiscard]] std::chrono::milliseconds now() const;
 
 	// Advances virtual time, or blocks, until duration has passed, firing due tasks along the way.
 	// No-op in Idle or when duration is negative.
@@ -76,7 +76,7 @@ private:
 
 	struct Task
 	{
-		std::size_t id = 0;
+		size_t id = 0;
 		std::chrono::milliseconds period{0};
 		std::chrono::milliseconds next{0};
 		std::function<void(const TaskHandle&)> fn;
@@ -85,17 +85,17 @@ private:
 		bool cancelled = false;
 	};
 
-	std::chrono::milliseconds timeUntilNext(std::chrono::milliseconds current) const;
+	[[nodiscard]] std::chrono::milliseconds timeUntilNext(std::chrono::milliseconds current) const;
 	void poll();
 	void pollAt(std::chrono::milliseconds current);
-	void cancel(std::size_t id);
+	void cancel(size_t id);
 	void reap();
-	Task* find(std::size_t id);
+	Task* find(size_t id);
 
 	Mode mode_ = Mode::Idle;
 	std::chrono::milliseconds virtual_now_{0};
 	std::chrono::steady_clock::time_point real_origin_{};
 	std::vector<Task> tasks_;
 	std::vector<TaskHandle*> live_handles_;
-	std::size_t next_id_ = 1;
+	size_t next_id_ = 1;
 };

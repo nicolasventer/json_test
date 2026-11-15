@@ -20,6 +20,7 @@ class SuiteDispositif : public testing::Test {
 TEST_F(SuiteDispositif, DemarrageDuDispositif) {
   module.expect.clear();
 
+  // Réglage de l'intervalle et du seuil
   config data_in_1;
   data_in_1.interval_ms = 100;
   data_in_1.threshold = 30.5;
@@ -31,6 +32,7 @@ TEST_F(SuiteDispositif, DemarrageDuDispositif) {
 
   module.getTimer().sleep(std::chrono::milliseconds(100));
 
+  // Le dispositif tourne depuis au moins 100 ms
   const state* data_out_1 = module.expect.find_as<state>("state");
   ASSERT_NE(data_out_1, nullptr) << "aucun message \"state\" envoyé";
   EXPECT_EQ(data_out_1->status, EStateStatus::RUNNING);

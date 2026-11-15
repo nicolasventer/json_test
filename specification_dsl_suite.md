@@ -79,6 +79,22 @@ Exemple :
 ["receive", "sensor", { "temperature": 25 }]
 ```
 
+### 4.2 `$comment`
+
+L'objet racine des données de `receive` et de `expect_send` peut contenir le champ `$comment`, une chaîne. Il documente cet objet. Il n'est pas un champ du message : la comparaison partielle l'ignore, et le test généré ne l'affecte pas. Le générateur l'écrit en commentaire `//` juste avant le bloc de l'étape.
+
+`$comment` peut contenir des retours à la ligne. Chaque ligne devient un commentaire `//`.
+
+Exemple :
+
+```json
+["receive", "cmd", { "$comment": "Ordre de démarrage\nEnvoyé au dispositif", "value": "START" }]
+```
+
+```json
+["expect_send", "response", { "$comment": "Le dispositif a démarré", "status": "OK" }]
+```
+
 ## 5. Vérifications
 
 ### 5.1 Comparaison partielle
@@ -240,9 +256,9 @@ Les étapes d'un test s'exécutent selon les règles suivantes :
 			"name": "Démarrage du dispositif",
 			"steps": [
 				["reset_expect"],
-				["receive", "cmd", { "value": "START" }],
+				["receive", "cmd", { "$comment": "Ordre de démarrage", "value": "START" }],
 				["sleep_ms", 100],
-				["expect_send", "response", { "status": "OK" }]
+				["expect_send", "response", { "$comment": "Le dispositif a démarré", "status": "OK" }]
 			]
 		},
 		{
@@ -255,4 +271,4 @@ Les étapes d'un test s'exécutent selon les règles suivantes :
 
 ## 10. Règles d'écriture
 
-Une suite est invalide lorsqu'un champ est absent, qu'un mot-clé est inconnu, que le nombre d'arguments d'une étape est incorrect, qu'un opérateur de comparaison est invalide ou qu'un type de valeur est incompatible.
+Une suite est invalide lorsqu'un champ est absent, qu'un mot-clé est inconnu, que le nombre d'arguments d'une étape est incorrect, qu'un opérateur de comparaison est invalide, qu'un type de valeur est incompatible ou que `$comment` n'est pas une chaîne.

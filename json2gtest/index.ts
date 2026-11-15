@@ -50,6 +50,7 @@ type StepView = {
 	type_name: string;
 	var_name: string;
 	topic_key: string;
+	comment_lines: string[];
 	fields: FieldView[];
 };
 
@@ -172,13 +173,32 @@ function toField(fieldPath: string, value: any, enumFieldMap: Record<string, str
 	return { path: fieldPath, value: token.value, isEnum: token.isEnum, operator: "EQ", epsilon: "" };
 }
 
+// Reads $comment on the root data object.
+// Splits lines, rejects control characters, and keeps a trailing backslash from joining the next line.
+function commentLines(value: any, where: string): string[] {
+	if (!isPlainObject(value) || !Object.hasOwn(value, "$comment")) return [];
+	const comment = value["$comment"];
+	if (typeof comment !== "string") fail(`${where}: "$comment" doit être une chaîne`);
+	return comment.split(/\r\n|\n|\r/).map((line) => {
+		for (const ch of line) {
+			if (ch < " ") fail(`${where}: caractère de contrôle dans "$comment"`);
+		}
+		return line.endsWith("\\") ? `${line} ` : line;
+	});
+}
+
 // Walks the data object of a receive or an expect_send.
-// Nested objects extend the path with a dot.
+// Skips a root $comment. A $comment inside a nested object is an error.
 function collectFields(value: any, enumFieldMap: Record<string, string>, where: string): FieldView[] {
 	if (!isPlainObject(value)) fail(`${where}: objet attendu`);
 	const fields: FieldView[] = [];
 	const walk = (node: Record<string, any>, prefix: string): void => {
 		for (const [key, child] of Object.entries(node)) {
+			if (key === "$comment") {
+				if (prefix.length > 0) fail(`${where}: "$comment" n'est pas admis dans un objet imbriqué`);
+				if (typeof child !== "string") fail(`${where}: "$comment" doit être une chaîne`);
+				continue;
+			}
 			const fieldPath = prefix.length === 0 ? key : `${prefix}.${key}`;
 			if (isPlainObject(child)) walk(child, fieldPath);
 			else fields.push(toField(fieldPath, child, enumFieldMap, where));
@@ -289,6 +309,7 @@ function emptyStep(blankBeforeStep: boolean): StepView {
 		type_name: "",
 		var_name: "",
 		topic_key: "",
+		comment_lines: [],
 		fields: [],
 	};
 }
@@ -321,6 +342,7 @@ function toStepView(step: Step, index: number, steps: Step[], counters: { dataIn
 			view.is_receive = true;
 			view.type_name = info.typeName;
 			view.var_name = `data_in_${++counters.dataIn}`;
+			view.comment_lines = commentLines(step[2], where);
 			view.fields = collectFields(step[2], info.enumFieldMap, where);
 			return view;
 		}
@@ -330,6 +352,7 @@ function toStepView(step: Step, index: number, steps: Step[], counters: { dataIn
 			view.type_name = info.typeName;
 			view.topic_key = info.typeName;
 			view.var_name = `data_out_${++counters.dataOut}`;
+			view.comment_lines = commentLines(step[2], where);
 			view.fields = collectFields(step[2], info.enumFieldMap, where);
 			return view;
 		}

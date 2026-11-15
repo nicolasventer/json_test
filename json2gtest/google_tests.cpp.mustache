@@ -23,6 +23,9 @@ TEST_F({{suite_class}}, {{method}}) {
 {{#blank_before}}
 
 {{/blank_before}}
+{{#comment_lines}}
+  // {{.}}
+{{/comment_lines}}
 {{#is_reset}}
   module.expect.clear();
 {{/is_reset}}

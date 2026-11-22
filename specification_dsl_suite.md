@@ -272,3 +272,41 @@ Les étapes d'un test s'exécutent selon les règles suivantes :
 ## 10. Règles d'écriture
 
 Une suite est invalide lorsqu'un champ est absent, qu'un mot-clé est inconnu, que le nombre d'arguments d'une étape est incorrect, qu'un opérateur de comparaison est invalide, qu'un type de valeur est incompatible ou que `$comment` n'est pas une chaîne.
+
+## 11. Cas particuliers
+
+Cette section décrit les écritures qui s'écartent des règles générales.
+
+### 11.1 Messages CAN
+
+Un message CAN s'écrit par un objet. Cette écriture est indépendante du standard LSB first ou MSB first : les mêmes champs sont utilisés dans les deux cas.
+
+| Champ   | Type   | Description                                           |
+| ------- | ------ | ----------------------------------------------------- |
+| `id`    | chaîne | Nom de la trame.                                      |
+| `start` | nombre | Bit de départ.                                        |
+| `data`  | chaîne | Suite de bits, écrite avec les caractères `0` et `1`. |
+
+Le champ `$comment` reste admis. Il documente l'objet et n'est pas un champ du message.
+
+`receive` et `expect_send` gardent leur syntaxe. L'objet CAN est l'argument de données.
+
+```json
+["receive", "can_cmd", { "id": "ENGINE", "start": 4, "data": "1011" }]
+```
+
+`receive` écrit `id`, `start` et `data` en valeurs exactes.
+
+```json
+["expect_send", "can_state", { "id": "ENGINE", "start": 4, "data": [">=", "1011"] }]
+```
+
+`expect_send` accepte sur `id` et `data` les opérateurs de comparaison de la section 5.2. `start` indique le bit de départ.
+
+Pour un message CAN, `expect_not_send` prend un objet en paramètre supplémentaire. La forme générale reste `["expect_not_send", topic]`.
+
+```json
+["expect_not_send", "can_state", { "id": "ALARM" }]
+```
+
+Cet objet ne contient que `id`. La vérification porte sur la trame nommée, et non sur l'ensemble du topic. Elle reste immédiate et s'appuie sur le dernier `reset_expect`.

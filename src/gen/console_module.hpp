@@ -11,9 +11,10 @@ class ConsoleModule : public IModule {
   IModuleLogic& getLogic() override;
   void Start() override;
 
-  void send_state(const state& message) override;
-  void send_measure(const measure& message) override;
-  void send_alarm(const alarm& message) override;
+  void sendDeviceStatusStatus(const StatusStatus& message) override;
+  void sendDeviceMeasureStatus(const MeasureStatus& message) override;
+  void sendDeviceAlarmStatus(const AlarmStatus& message) override;
+  void sendDeviceCanMessageStatus(const CanMessageStatus& message) override;
 
  private:
   Timer timer_;

@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Timer.cpp uses designated initializers. MSVC rejects them in C++17.
+if(MSVC)
+  set(CMAKE_CXX_STANDARD 20)
+endif()
+
 include(FetchContent)
 
 FetchContent_Declare(

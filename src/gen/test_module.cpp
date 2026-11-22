@@ -17,8 +17,18 @@ void TestModule::Start() {
   }
 }
 
-void TestModule::send_state(const state& message) { expect["state"] = message; }
+void TestModule::sendDeviceStatusStatus(const StatusStatus& message) {
+  expect["/device/status/status"] = message;
+}
 
-void TestModule::send_measure(const measure& message) { expect["measure"] = message; }
+void TestModule::sendDeviceMeasureStatus(const MeasureStatus& message) {
+  expect["/device/measure/status"] = message;
+}
 
-void TestModule::send_alarm(const alarm& message) { expect["alarm"] = message; }
+void TestModule::sendDeviceAlarmStatus(const AlarmStatus& message) {
+  expect["/device/alarm/status"] = message;
+}
+
+void TestModule::sendDeviceCanMessageStatus(const CanMessageStatus& message) {
+  expect[std::string("/device/can_message/status/") + std::to_string(message.id_code)] = message;
+}

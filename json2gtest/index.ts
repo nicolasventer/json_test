@@ -6,12 +6,15 @@ import tpl from "./google_tests.cpp.mustache?raw";
 
 type Operator = "EQ" | "NE" | "GT" | "GE" | "LT" | "LE" | "NEAR";
 
+type Pack = (bits: string, start: number) => bigint;
+
 type Step =
 	| ["reset_expect"]
 	| ["sleep_ms", number]
 	| ["receive", string, any]
 	| ["expect_send", string, any]
-	| ["expect_not_send", string];
+	| ["expect_not_send", string]
+	| ["expect_not_send", string, any];
 
 type JsonTest = {
 	name: string;
@@ -27,9 +30,12 @@ type JsonTestSuite = {
 type TypeInfo = {
 	topicList: string[];
 	enumFieldMap: Record<string, string>;
+	isCan: boolean;
 };
 
 type TypeCatalog = Record<string, TypeInfo>;
+
+type IdMap = Record<string, number>;
 
 type FieldView = {
 	path: string;
@@ -37,6 +43,16 @@ type FieldView = {
 	isEnum: boolean;
 	operator: Operator;
 	epsilon: string;
+	integer_near: boolean;
+};
+
+type CanView = {
+	topic_with_slash: string;
+	id_code_number: string;
+	id_code: string;
+	data: string;
+	id_text: string;
+	source_comment: string;
 };
 
 type StepView = {
@@ -46,12 +62,15 @@ type StepView = {
 	is_receive: boolean;
 	is_expect_send: boolean;
 	is_expect_not_send: boolean;
+	is_can: boolean;
 	ms: string;
 	type_name: string;
+	topic_pascal: string;
 	var_name: string;
 	topic_key: string;
 	comment_lines: string[];
 	fields: FieldView[];
+	can: CanView;
 };
 
 type View = {
@@ -132,6 +151,12 @@ function cppString(value: string, where: string): string {
 	return `${out}"`;
 }
 
+// Writes the inside of a C++ string literal.
+// The surrounding quotes are added by the template.
+function cppStringContents(value: string, where: string): string {
+	return cppString(value, where).slice(1, -1);
+}
+
 // Converts a JSON scalar into a C++ token.
 // When enumType is set, a string becomes TypeEnum::Value.
 function cppToken(value: any, where: string, enumType: string | undefined): { value: string; isEnum: boolean } {
@@ -163,14 +188,15 @@ function toField(fieldPath: string, value: any, enumFieldMap: Record<string, str
 				fail(`${where}: le seuil de ~= doit être positif ou nul`);
 			}
 			const expected = cppToken(value[1], where, enumType);
-			return { path: fieldPath, value: expected.value, isEnum: expected.isEnum, operator, epsilon: String(threshold) };
+			const integerNear = !expected.isEnum && Number.isInteger(value[1]) && Number.isInteger(threshold);
+			return { path: fieldPath, value: expected.value, isEnum: expected.isEnum, operator, epsilon: String(threshold), integer_near: integerNear };
 		}
 		if (value.length !== 2) fail(`${where}: ${op} attend une valeur`);
 		const token = cppToken(value[1], where, enumType);
-		return { path: fieldPath, value: token.value, isEnum: token.isEnum, operator, epsilon: "" };
+		return { path: fieldPath, value: token.value, isEnum: token.isEnum, operator, epsilon: "", integer_near: false };
 	}
 	const token = cppToken(value, where, enumType);
-	return { path: fieldPath, value: token.value, isEnum: token.isEnum, operator: "EQ", epsilon: "" };
+	return { path: fieldPath, value: token.value, isEnum: token.isEnum, operator: "EQ", epsilon: "", integer_near: false };
 }
 
 // Reads $comment on the root data object.
@@ -223,8 +249,9 @@ function asStep(value: any, where: string): Step {
 		return ["sleep_ms", value[1]];
 	}
 	if (op === "expect_not_send") {
-		if (value.length !== 2 || typeof value[1] !== "string") fail(`${where}: expect_not_send attend un topic`);
-		return ["expect_not_send", value[1]];
+		if ((value.length !== 2 && value.length !== 3) || typeof value[1] !== "string") fail(`${where}: expect_not_send attend un topic`);
+		if (value.length === 2) return ["expect_not_send", value[1]];
+		return ["expect_not_send", value[1], value[2]];
 	}
 	if (op === "receive") {
 		if (value.length !== 3 || typeof value[1] !== "string") fail(`${where}: receive attend un topic et des données`);
@@ -266,7 +293,7 @@ function asSuite(value: any): JsonTestSuite {
 }
 
 // Reads the type catalog.
-// Each entry has topicList and enumFieldMap, with no check on names.
+// Each entry has topicList and enumFieldMap. isCan is optional and means false when absent.
 function asTypeCatalog(value: any): TypeCatalog {
 	if (!isPlainObject(value)) fail("types.json: objet attendu");
 	const catalog: TypeCatalog = {};
@@ -276,12 +303,17 @@ function asTypeCatalog(value: any): TypeCatalog {
 			fail(`types.json: "${typeName}".topicList doit être une liste de chaînes`);
 		}
 		if (!isPlainObject(info.enumFieldMap)) fail(`types.json: "${typeName}".enumFieldMap doit être un objet`);
+		let isCan = false;
+		if (Object.hasOwn(info, "isCan")) {
+			if (typeof info.isCan !== "boolean") fail(`types.json: "${typeName}".isCan doit être un booléen`);
+			isCan = info.isCan;
+		}
 		const enumFieldMap: Record<string, string> = {};
 		for (const [fieldPath, enumType] of Object.entries(info.enumFieldMap)) {
 			if (typeof enumType !== "string") fail(`types.json: enum de "${typeName}.${fieldPath}" invalide`);
 			enumFieldMap[fieldPath] = enumType;
 		}
-		catalog[typeName] = { topicList: info.topicList, enumFieldMap };
+		catalog[typeName] = { topicList: info.topicList, enumFieldMap, isCan };
 	}
 	return catalog;
 }
@@ -295,6 +327,303 @@ function typeForTopic(catalog: TypeCatalog, topic: string, where: string): TypeI
 	fail(`${where}: topic inconnu "${topic}"`);
 }
 
+// Formats one JSON token for the source comment.
+// Keeps strings quoted and arrays in their written order.
+function formatToken(value: any, where: string): string {
+	if (typeof value === "string") return JSON.stringify(value);
+	if (typeof value === "number") {
+		if (!Number.isInteger(value)) fail(`${where}: nombre entier attendu`);
+		return String(value);
+	}
+	if (Array.isArray(value)) return `[${value.map((item) => formatToken(item, where)).join(", ")}]`;
+	fail(`${where}: valeur invalide dans le commentaire`);
+}
+
+// Restores the object as a single comment line.
+// The field order is the order given, and $comment is left out.
+function sourceComment(entries: Array<[string, any]>, where: string): string {
+	const body = entries.map(([key, value]) => `${JSON.stringify(key)}: ${formatToken(value, where)}`).join(", ");
+	const line = `{ ${body} }`;
+	return line.endsWith("\\") ? `${line} ` : line;
+}
+
+// Checks a start bit.
+// It must land inside a 64-bit word.
+function asStart(value: any, where: string): number {
+	if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 63) {
+		fail(`${where}: "start" doit être un entier entre 0 et 63`);
+	}
+	return value;
+}
+
+// Checks a bit string.
+// Only 0 and 1 are accepted, and the bits must fit after start.
+function asBits(value: any, start: number, where: string): string {
+	if (typeof value !== "string" || !/^[01]+$/.test(value)) fail(`${where}: "data" doit être une chaîne de 0 et de 1`);
+	if (start + value.length > 64) fail(`${where}: les bits dépassent 64`);
+	return value;
+}
+
+// Checks an id name.
+// The map lookup happens afterwards.
+function asIdName(value: any, where: string): string {
+	if (typeof value !== "string" || value.length === 0) fail(`${where}: "id" doit être une chaîne`);
+	return value;
+}
+
+// Checks a ~= threshold for an integer field.
+// The threshold is a non-negative integer.
+function asEpsilon(value: any, where: string): number {
+	if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+		fail(`${where}: le seuil de ~= doit être un entier positif ou nul`);
+	}
+	return value;
+}
+
+// Reads a plain value or a comparator.
+// A scalar becomes equality. ~= keeps its threshold.
+function asCompared(value: any, where: string): { operator: Operator; raw: any; epsilon: number | undefined } {
+	if (!Array.isArray(value)) return { operator: "EQ", raw: value, epsilon: undefined };
+	const op = value[0];
+	if (!isComparatorOp(op)) fail(`${where}: tableau inattendu`);
+	if (op === "~=") {
+		if (value.length !== 3) fail(`${where}: ~= attend une valeur et un seuil`);
+		return { operator: "NEAR", raw: value[1], epsilon: asEpsilon(value[2], where) };
+	}
+	if (value.length !== 2) fail(`${where}: ${op} attend une valeur`);
+	return { operator: OPERATOR_OF[op]!, raw: value[1], epsilon: undefined };
+}
+
+// Rejects keys other than those listed, plus $comment.
+// A misplaced field is reported with the step location.
+function allowKeys(value: Record<string, any>, keys: string[], where: string): void {
+	for (const key of Object.keys(value)) {
+		if (key === "$comment") continue;
+		if (!keys.includes(key)) fail(`${where}: champ "${key}" inattendu`);
+	}
+}
+
+// Reads the id map.
+// Each value is a uint32 code.
+function asIdMap(value: any): IdMap {
+	if (!isPlainObject(value)) fail("can_ids.json: objet attendu");
+	const ids: IdMap = {};
+	for (const [name, code] of Object.entries(value)) {
+		if (name.length === 0) fail("can_ids.json: id vide");
+		if (typeof code !== "number" || !Number.isInteger(code) || code < 0 || code > 0xffff_ffff) {
+			fail(`can_ids.json: code de "${name}" invalide`);
+		}
+		ids[name] = code;
+	}
+	return ids;
+}
+
+// Resolves an id through the map.
+// An unknown name stops generation.
+function idCodeOf(ids: IdMap, name: string, where: string): number {
+	if (!Object.hasOwn(ids, name)) fail(`${where}: id inconnu "${name}"`);
+	return ids[name]!;
+}
+
+// Writes a uint32 literal.
+// The suffix matches the id_code field.
+function u32Literal(value: number): string {
+	return `${value}u`;
+}
+
+// Writes a uint64 literal.
+// Hex keeps the packed bits readable.
+function u64Literal(value: bigint): string {
+	return `0x${value.toString(16).toUpperCase()}ULL`;
+}
+
+// Writes an integer threshold with the field's suffix.
+function epsilonLiteral(value: number, suffix: "u" | "ULL"): string {
+	return `${value}${suffix}`;
+}
+
+// Places a bit string with the left bit as the high bit.
+// The result is then shifted by start.
+function packMsb(bits: string, start: number): bigint {
+	let value = 0n;
+	for (const ch of bits) value = (value << 1n) | (ch === "1" ? 1n : 0n);
+	return value << BigInt(start);
+}
+
+// Places a bit string with the first character at start.
+// The following characters occupy the higher bits.
+function packLsb(bits: string, start: number): bigint {
+	let value = 0n;
+	for (let i = 0; i < bits.length; i++) {
+		if (bits[i] === "1") value |= 1n << BigInt(start + i);
+	}
+	return value;
+}
+
+// Chooses the bit order from the process arguments.
+// MSB is the default. --lsb selects the other order.
+function packFromArgs(args: string[]): Pack {
+	if (args.length === 0) return packMsb;
+	if (args.length === 1 && args[0] === "--lsb") return packLsb;
+	fail(`argument inconnu "${args.join(" ")}"`);
+}
+
+// Reads id, start, and data for a receive.
+// Operators are rejected: a receive assigns exact values.
+function receivePayload(value: any, ids: IdMap, pack: Pack, where: string): { id: string; code: number; data: bigint; source: string; comments: string[] } {
+	if (!isPlainObject(value)) fail(`${where}: objet attendu`);
+	allowKeys(value, ["id", "start", "data"], where);
+	if (!Object.hasOwn(value, "id") || !Object.hasOwn(value, "start") || !Object.hasOwn(value, "data")) {
+		fail(`${where}: "id", "start" et "data" sont requis`);
+	}
+	const id = asIdName(value.id, where);
+	const start = asStart(value.start, where);
+	const bits = asBits(value.data, start, where);
+	return {
+		id,
+		code: idCodeOf(ids, id, where),
+		data: pack(bits, start),
+		source: sourceComment(
+			[
+				["id", value.id],
+				["start", value.start],
+				["data", value.data],
+			],
+			where,
+		),
+		comments: commentLines(value, where),
+	};
+}
+
+// Reads an expect_send object.
+// id and data may be comparators; start only places the bits.
+function expectPayload(
+	value: any,
+	ids: IdMap,
+	pack: Pack,
+	where: string,
+): { id: string; code: number; fields: FieldView[]; source: string; comments: string[] } {
+	if (!isPlainObject(value)) fail(`${where}: objet attendu`);
+	allowKeys(value, ["id", "start", "data"], where);
+	if (!Object.hasOwn(value, "id") || !Object.hasOwn(value, "start") || !Object.hasOwn(value, "data")) {
+		fail(`${where}: "id", "start" et "data" sont requis`);
+	}
+	const start = asStart(value.start, where);
+	const idCmp = asCompared(value.id, `${where}: "id"`);
+	const id = asIdName(idCmp.raw, `${where}: "id"`);
+	const code = idCodeOf(ids, id, where);
+	const dataCmp = asCompared(value.data, `${where}: "data"`);
+	const bits = asBits(dataCmp.raw, start, `${where}: "data"`);
+	const fields: FieldView[] = [
+		{
+			path: "id_code",
+			value: u32Literal(code),
+			isEnum: false,
+			operator: idCmp.operator,
+			epsilon: idCmp.epsilon === undefined ? "" : epsilonLiteral(idCmp.epsilon, "u"),
+			integer_near: idCmp.epsilon !== undefined,
+		},
+		{
+			path: "data",
+			value: u64Literal(pack(bits, start)),
+			isEnum: false,
+			operator: dataCmp.operator,
+			epsilon: dataCmp.epsilon === undefined ? "" : epsilonLiteral(dataCmp.epsilon, "ULL"),
+			integer_near: dataCmp.epsilon !== undefined,
+		},
+	];
+	return {
+		id,
+		code,
+		fields,
+		source: sourceComment(
+			[
+				["id", value.id],
+				["start", value.start],
+				["data", value.data],
+			],
+			where,
+		),
+		comments: commentLines(value, where),
+	};
+}
+
+// Reads an expect_not_send object.
+// Only the id is used to build the key.
+function absentPayload(value: any, ids: IdMap, where: string): { id: string; code: number; source: string; comments: string[] } {
+	if (!isPlainObject(value)) fail(`${where}: objet attendu`);
+	allowKeys(value, ["id"], where);
+	if (!Object.hasOwn(value, "id")) fail(`${where}: "id" est requis`);
+	const id = asIdName(value.id, where);
+	return {
+		id,
+		code: idCodeOf(ids, id, where),
+		source: sourceComment([["id", value.id]], where),
+		comments: commentLines(value, where),
+	};
+}
+
+// Builds an empty CAN view.
+// Every string is blank so unused Mustache sections stay hidden.
+function emptyCan(): CanView {
+	return {
+		topic_with_slash: "",
+		id_code_number: "",
+		id_code: "",
+		data: "",
+		id_text: "",
+		source_comment: "",
+	};
+}
+
+// Builds the CAN view for a receive.
+// id_code and data are exact. The lookup key stays empty.
+function canReceive(value: any, ids: IdMap, pack: Pack, where: string): { can: CanView; comments: string[] } {
+	const payload = receivePayload(value, ids, pack, where);
+	return {
+		can: {
+			...emptyCan(),
+			id_code: u32Literal(payload.code),
+			data: u64Literal(payload.data),
+			source_comment: payload.source,
+		},
+		comments: payload.comments,
+	};
+}
+
+// Builds the CAN view for an expect_send.
+// The topic always gains a trailing slash for the VariantMap key.
+function canExpect(topic: string, value: any, ids: IdMap, pack: Pack, where: string): { can: CanView; comments: string[]; fields: FieldView[] } {
+	const payload = expectPayload(value, ids, pack, where);
+	return {
+		can: {
+			...emptyCan(),
+			topic_with_slash: cppString(`${topic}/`, where),
+			id_code_number: String(payload.code),
+			id_text: cppStringContents(payload.id, where),
+			source_comment: payload.source,
+		},
+		comments: payload.comments,
+		fields: payload.fields,
+	};
+}
+
+// Builds the CAN view for an expect_not_send.
+// Only the id selects the key. No field comparisons are emitted.
+function canAbsent(topic: string, value: any, ids: IdMap, where: string): { can: CanView; comments: string[] } {
+	const payload = absentPayload(value, ids, where);
+	return {
+		can: {
+			...emptyCan(),
+			topic_with_slash: cppString(`${topic}/`, where),
+			id_code_number: String(payload.code),
+			id_text: cppStringContents(payload.id, where),
+			source_comment: payload.source,
+		},
+		comments: payload.comments,
+	};
+}
+
 // Prepares a step view whose Mustache sections are false.
 // blank_before is the only flag already decided.
 function emptyStep(blankBeforeStep: boolean): StepView {
@@ -305,12 +634,15 @@ function emptyStep(blankBeforeStep: boolean): StepView {
 		is_receive: false,
 		is_expect_send: false,
 		is_expect_not_send: false,
+		is_can: false,
 		ms: "",
 		type_name: "",
+		topic_pascal: "",
 		var_name: "",
 		topic_key: "",
 		comment_lines: [],
 		fields: [],
+		can: emptyCan(),
 	};
 }
 
@@ -325,8 +657,17 @@ function blankBefore(steps: Step[], index: number): boolean {
 }
 
 // Turns a step into its Mustache view.
-// Numbers data_in_N and data_out_N, and qualifies enums from enumFieldMap.
-function toStepView(step: Step, index: number, steps: Step[], counters: { dataIn: number; dataOut: number }, catalog: TypeCatalog, testName: string): StepView {
+// Numbers data_in_N and data_out_N. A CAN topic packs bits; any other topic walks fields.
+function toStepView(
+	step: Step,
+	index: number,
+	steps: Step[],
+	counters: { dataIn: number; dataOut: number },
+	catalog: TypeCatalog,
+	ids: IdMap,
+	pack: Pack,
+	testName: string,
+): StepView {
 	const where = `test "${testName}", étape ${index + 1}`;
 	const view = emptyStep(blankBefore(steps, index));
 	switch (step[0]) {
@@ -341,7 +682,15 @@ function toStepView(step: Step, index: number, steps: Step[], counters: { dataIn
 			const info = typeForTopic(catalog, step[1], where);
 			view.is_receive = true;
 			view.type_name = info.typeName;
+			view.topic_pascal = toCppName(step[1], where);
 			view.var_name = `data_in_${++counters.dataIn}`;
+			if (info.isCan) {
+				const built = canReceive(step[2], ids, pack, where);
+				view.is_can = true;
+				view.can = built.can;
+				view.comment_lines = built.comments;
+				return view;
+			}
 			view.comment_lines = commentLines(step[2], where);
 			view.fields = collectFields(step[2], info.enumFieldMap, where);
 			return view;
@@ -350,8 +699,16 @@ function toStepView(step: Step, index: number, steps: Step[], counters: { dataIn
 			const info = typeForTopic(catalog, step[1], where);
 			view.is_expect_send = true;
 			view.type_name = info.typeName;
-			view.topic_key = info.typeName;
 			view.var_name = `data_out_${++counters.dataOut}`;
+			if (info.isCan) {
+				const built = canExpect(step[1], step[2], ids, pack, where);
+				view.is_can = true;
+				view.can = built.can;
+				view.comment_lines = built.comments;
+				view.fields = built.fields;
+				return view;
+			}
+			view.topic_key = step[1];
 			view.comment_lines = commentLines(step[2], where);
 			view.fields = collectFields(step[2], info.enumFieldMap, where);
 			return view;
@@ -360,8 +717,17 @@ function toStepView(step: Step, index: number, steps: Step[], counters: { dataIn
 			const info = typeForTopic(catalog, step[1], where);
 			view.is_expect_not_send = true;
 			view.type_name = info.typeName;
-			view.topic_key = info.typeName;
 			view.var_name = `data_out_${++counters.dataOut}`;
+			if (info.isCan) {
+				if (step.length !== 3) fail(`${where}: expect_not_send attend un topic et un id`);
+				const built = canAbsent(step[1], step[2], ids, where);
+				view.is_can = true;
+				view.can = built.can;
+				view.comment_lines = built.comments;
+				return view;
+			}
+			if (step.length !== 2) fail(`${where}: expect_not_send attend un topic`);
+			view.topic_key = step[1];
 			return view;
 		}
 	}
@@ -369,7 +735,7 @@ function toStepView(step: Step, index: number, steps: Step[], counters: { dataIn
 
 // Assembles the view for the C++ file.
 // Resets the variable counters at the start of each test.
-function toView(suite: JsonTestSuite, catalog: TypeCatalog): View {
+function toView(suite: JsonTestSuite, catalog: TypeCatalog, ids: IdMap, pack: Pack): View {
 	return {
 		suite_class: toCppName(suite.name, "nom de suite"),
 		use_virtual_time: suite.use_virtual_time,
@@ -377,7 +743,7 @@ function toView(suite: JsonTestSuite, catalog: TypeCatalog): View {
 			const counters = { dataIn: 0, dataOut: 0 };
 			return {
 				method: toCppName(test.name, `test "${test.name}"`),
-				steps: test.steps.map((step, index) => toStepView(step, index, test.steps, counters, catalog, test.name)),
+				steps: test.steps.map((step, index) => toStepView(step, index, test.steps, counters, catalog, ids, pack, test.name)),
 			};
 		}),
 	};
@@ -392,10 +758,12 @@ function readJson(filePath: string): any {
 }
 
 if (import.meta.main) {
+	const pack = packFromArgs(process.argv.slice(2));
 	const root = path.join(import.meta.dir, "..");
 	const suite = asSuite(readJson(path.join(root, "example1.json")));
 	const catalog = asTypeCatalog(readJson(path.join(root, "types.json")));
-	const view: View = toView(suite, catalog);
+	const ids = asIdMap(readJson(path.join(root, "can_ids.json")));
+	const view: View = toView(suite, catalog, ids, pack);
 	const google_tests_content = mustache
 		.render(tpl, view, undefined, { escape: (v) => v })
 		.replace(/\\\r?\n/g, "")

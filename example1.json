@@ -6,45 +6,57 @@
       "name": "Démarrage du dispositif",
       "steps": [
         ["reset_expect"],
-        ["receive", "/config", { "$comment": "Réglage de l'intervalle et du seuil", "interval_ms": 100, "threshold": 30.5 }],
-        ["receive", "/cmd", { "value": "START" }],
+        ["receive", "/device/config/status", { "$comment": "Réglage de l'intervalle et du seuil", "interval_ms": 100, "threshold": 30.5 }],
+        ["receive", "/device/cmd/command", { "value": "START" }],
         ["sleep_ms", 100],
-        ["expect_send", "/state", { "$comment": "Le dispositif tourne depuis au moins 100 ms", "status": "RUNNING", "uptime_ms": [">=", 100] }],
+        ["expect_send", "/device/status/status", { "$comment": "Le dispositif tourne depuis au moins 100 ms", "status": "RUNNING", "uptime_ms": [">=", 100] }],
+        ["expect_send", "/device/status/status", { "uptime_ms": ["~=", 100, 20] }],
         ["reset_expect"],
-        ["expect_not_send", "/alarm"]
+        ["expect_not_send", "/device/alarm/status"]
       ]
     },
     {
       "name": "Mesure sous le seuil",
       "steps": [
         ["reset_expect"],
-        ["receive", "/config", { "interval_ms": 100, "threshold": 30.5 }],
-        ["receive", "/cmd", { "value": "START" }],
+        ["receive", "/device/config/status", { "interval_ms": 100, "threshold": 30.5 }],
+        ["receive", "/device/cmd/command", { "value": "START" }],
         ["sleep_ms", 100],
-        ["expect_send", "/measure", { "temperature": [">=", 20.0], "humidity": ["<", 80] }],
-        ["expect_send", "/measure", { "temperature": ["<", 30.5] }]
+        ["expect_send", "/device/measure/status", { "temperature": [">=", 20.0], "humidity": ["<", 80] }],
+        ["expect_send", "/device/measure/status", { "temperature": ["<", 30.5] }]
       ]
     },
     {
       "name": "Seuil dépassé",
       "steps": [
         ["reset_expect"],
-        ["receive", "/config", { "interval_ms": 100, "threshold": 30.5 }],
-        ["receive", "/cmd", { "value": "START" }],
+        ["receive", "/device/config/status", { "interval_ms": 100, "threshold": 30.5 }],
+        ["receive", "/device/cmd/command", { "value": "START" }],
         ["sleep_ms", 200],
-        ["expect_send", "/alarm", { "level": "WARN", "code": 42 }],
-        ["expect_send", "/state", { "status": "CLOSED" }]
+        ["expect_send", "/device/alarm/status", { "level": "WARN", "code": 42 }],
+        ["expect_send", "/device/status/status", { "status": "CLOSED" }]
       ]
     },
     {
       "name": "Arrêt du dispositif",
       "steps": [
         ["reset_expect"],
-        ["receive", "/config", { "interval_ms": 100, "threshold": 30.5 }],
-        ["receive", "/cmd", { "value": "START" }],
+        ["receive", "/device/config/status", { "interval_ms": 100, "threshold": 30.5 }],
+        ["receive", "/device/cmd/command", { "value": "START" }],
         ["sleep_ms", 100],
-        ["receive", "/cmd", { "value": "STOP" }],
-        ["expect_send", "/state", { "status": "CLOSED" }]
+        ["receive", "/device/cmd/command", { "value": "STOP" }],
+        ["expect_send", "/device/status/status", { "status": "CLOSED" }]
+      ]
+    },
+    {
+      "name": "Trame moteur",
+      "steps": [
+        ["reset_expect"],
+        ["receive", "/device/can_message/command", { "$comment": "Vitesse sur les bits à partir de start", "id": "ENGINE", "start": 4, "data": "1011" }],
+        ["expect_send", "/device/can_message/status", { "id": "ENGINE", "start": 4, "data": [">=", "1011"] }],
+        ["expect_send", "/device/can_message/status", { "id": "ENGINE", "start": 4, "data": ["~=", "1011", 0] }],
+        ["reset_expect"],
+        ["expect_not_send", "/device/can_message/status", { "id": "ALARM" }]
       ]
     }
   ]

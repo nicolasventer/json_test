@@ -18,8 +18,8 @@ int main() {
     module.Start();
 
     auto showKeys = [] {
-      std::cout << R"(a: cmd { "value": "START" })" << std::endl;
-      std::cout << R"(b: config { "interval_ms": 100, "threshold": 30.5 })" << std::endl;
+      std::cout << R"(a: CmdCommand { "value": "START" })" << std::endl;
+      std::cout << R"(b: ConfigStatus { "interval_ms": 100, "threshold": 30.5 })" << std::endl;
       std::cout << "échap: quitter" << std::endl;
       std::cout << "tab: réafficher les touches" << std::endl;
     };
@@ -40,11 +40,11 @@ int main() {
         if (*key == Term::Key::Tab) {
           showKeys();
         } else if (*key == Term::Key::a) {
-          std::cout << R"(receive cmd { "value": "START" })" << std::endl;
-          logic.onReceive_cmd(cmd{"START"});
+          std::cout << R"(receive CmdCommand { "value": "START" })" << std::endl;
+          logic.onReceiveDeviceCmdCommand(CmdCommand{"START"});
         } else if (*key == Term::Key::b) {
-          std::cout << R"(receive config { "interval_ms": 100, "threshold": 30.5 })" << std::endl;
-          logic.onReceive_config(config{100, 30.5});
+          std::cout << R"(receive ConfigStatus { "interval_ms": 100, "threshold": 30.5 })" << std::endl;
+          logic.onReceiveDeviceConfigStatus(ConfigStatus{100, 30.5});
         } else {
           std::cout << "receive unknown key '" << key->name() << "'" << std::endl;
         }

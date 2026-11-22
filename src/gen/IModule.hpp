@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 #include "enum_ostream.hpp"
@@ -22,33 +23,45 @@ enum EAlarmLevel
 
 ENUM_OSTREAM(EAlarmLevel, INFO, WARN, FAULT)
 
-struct cmd
+struct CmdCommand
 {
 	std::string value;
 };
 
-struct config
+struct ConfigStatus
 {
 	int interval_ms;
 	double threshold;
 };
 
-struct state
+struct StatusStatus
 {
 	EStateStatus status;
 	int uptime_ms;
 };
 
-struct measure
+struct MeasureStatus
 {
 	double temperature;
 	int humidity;
 };
 
-struct alarm
+struct AlarmStatus
 {
 	EAlarmLevel level;
 	int code;
+};
+
+struct CanMessageCommand
+{
+	uint32_t id_code;
+	uint64_t data;
+};
+
+struct CanMessageStatus
+{
+	uint32_t id_code;
+	uint64_t data;
 };
 
 class Timer;
@@ -69,9 +82,10 @@ public:
 	virtual IModuleLogic& getLogic() = 0;
 	virtual void Start() = 0;
 
-	virtual void send_state(const state& message) = 0;
-	virtual void send_measure(const measure& message) = 0;
-	virtual void send_alarm(const alarm& message) = 0;
+	virtual void sendDeviceStatusStatus(const StatusStatus& message) = 0;
+	virtual void sendDeviceMeasureStatus(const MeasureStatus& message) = 0;
+	virtual void sendDeviceAlarmStatus(const AlarmStatus& message) = 0;
+	virtual void sendDeviceCanMessageStatus(const CanMessageStatus& message) = 0;
 };
 
 class IModuleLogic
@@ -86,6 +100,7 @@ public:
 	IModuleLogic& operator=(IModuleLogic&&) = delete;
 
 	virtual void setModule(IModule& module) = 0;
-	virtual void onReceive_cmd(const cmd& message) = 0;
-	virtual void onReceive_config(const config& message) = 0;
+	virtual void onReceiveDeviceCmdCommand(const CmdCommand& message) = 0;
+	virtual void onReceiveDeviceConfigStatus(const ConfigStatus& message) = 0;
+	virtual void onReceiveDeviceCanMessageCommand(const CanMessageCommand& message) = 0;
 };

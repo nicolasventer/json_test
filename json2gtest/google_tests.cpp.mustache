@@ -7,6 +7,8 @@
 
 #include <chrono>
 
+#define ABS_DIFF(a, b) (((a) >= (b)) ? ((a) - (b)) : ((b) - (a)))
+
 namespace {
 
 class {{suite_class}} : public testing::Test {
@@ -26,25 +28,47 @@ TEST_F({{suite_class}}, {{method}}) {
 {{#comment_lines}}
   // {{.}}
 {{/comment_lines}}
+{{#can.source_comment}}
+  // {{.}}
+{{/can.source_comment}}
 {{#is_reset}}
   module.expect.clear();
 {{/is_reset}}
 {{#is_receive}}
-  {{type_name}} {{var_name}};
+{{#is_can}}
+  {{type_name}} {{var_name}}{};
+  {{var_name}}.id_code = {{can.id_code}};
+  {{var_name}}.data = {{can.data}};
+  logic.onReceive{{topic_pascal}}({{var_name}});
+{{/is_can}}
+{{^is_can}}
+  {{type_name}} {{var_name}}{};
 {{#fields}}
   {{var_name}}.{{path}} = {{value}};
 {{/fields}}
-  logic.onReceive_{{type_name}}({{var_name}});
+  logic.onReceive{{topic_pascal}}({{var_name}});
+{{/is_can}}
 {{/is_receive}}
 {{#is_sleep}}
   module.getTimer().sleep(std::chrono::milliseconds({{ms}}));
 {{/is_sleep}}
 {{#is_expect_send}}
+{{#is_can}}
+  const {{type_name}}* {{var_name}} = module.expect.find_as<{{type_name}}>(std::string({{can.topic_with_slash}}) + std::to_string({{can.id_code_number}}));
+  ASSERT_NE({{var_name}}, nullptr) << "aucun message \"{{can.id_text}}\" envoyé";
+{{/is_can}}
+{{^is_can}}
   const {{type_name}}* {{var_name}} = module.expect.find_as<{{type_name}}>("{{topic_key}}");
   ASSERT_NE({{var_name}}, nullptr) << "aucun message \"{{topic_key}}\" envoyé";
+{{/is_can}}
 {{#fields}}
 {{#epsilon}}
+{{#integer_near}}
+  EXPECT_LE(ABS_DIFF({{var_name}}->{{path}}, {{value}}), {{epsilon}});
+{{/integer_near}}
+{{^integer_near}}
   EXPECT_NEAR({{var_name}}->{{path}}, {{value}}, {{epsilon}});
+{{/integer_near}}
 {{/epsilon}}
 {{^epsilon}}
   EXPECT_{{operator}}({{var_name}}->{{path}}, {{value}});
@@ -52,8 +76,14 @@ TEST_F({{suite_class}}, {{method}}) {
 {{/fields}}
 {{/is_expect_send}}
 {{#is_expect_not_send}}
+{{#is_can}}
+  const {{type_name}}* {{var_name}} = module.expect.find_as<{{type_name}}>(std::string({{can.topic_with_slash}}) + std::to_string({{can.id_code_number}}));
+  EXPECT_EQ({{var_name}}, nullptr) << "un message \"{{can.id_text}}\" inattendu";
+{{/is_can}}
+{{^is_can}}
   const {{type_name}}* {{var_name}} = module.expect.find_as<{{type_name}}>("{{topic_key}}");
   EXPECT_EQ({{var_name}}, nullptr) << "un message \"{{topic_key}}\" inattendu";
+{{/is_can}}
 {{/is_expect_not_send}}
 {{/steps}}
 }

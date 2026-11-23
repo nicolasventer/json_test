@@ -13,6 +13,7 @@
 -Wno-c2y-extensions
 -Isrc
 -Isrc/gen
+-Itests/gen
 -Ilibs/async_call
 -Ilibs/variant_map
 -Ilibs/timer

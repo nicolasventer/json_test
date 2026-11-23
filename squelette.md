@@ -8,11 +8,11 @@ ConsoleModule module{logic};
 module.Start();
 ```
 
-[`src/gen/main.cpp`](src/gen/main.cpp) construit ainsi l'application. [`src/gen/example1_test.cpp`](src/gen/example1_test.cpp) fait la même chose avec `TestModule`, puis appelle `module.Start()` dans `SetUp`.
+[`src/gen/main.cpp`](src/gen/main.cpp) construit ainsi l'application. [`tests/gen/example1_test.cpp`](tests/gen/example1_test.cpp) fait la même chose avec `TestModule`, puis appelle `module.Start()` dans `SetUp`.
 
 1. Constructeur de `IModuleLogic`. `DeviceLogic logic` construit d'abord cette base.
 2. Constructeur de `IModule`. `ConsoleModule` et `TestModule` en héritent : cette base est construite avant les membres du module.
-3. `IModuleLogic::setModule`. Le corps du constructeur du module appelle `logic_.setModule(*this)`, dans [`src/gen/console_module.cpp`](src/gen/console_module.cpp) et [`src/gen/test_module.cpp`](src/gen/test_module.cpp).
+3. `IModuleLogic::setModule`. Le corps du constructeur du module appelle `logic_.setModule(*this)`, dans [`src/gen/console_module.cpp`](src/gen/console_module.cpp) et [`tests/gen/test_module.cpp`](tests/gen/test_module.cpp).
 4. `IModule::Start`. L'appelant l'invoque une fois l'objet construit. La méthode s'écrit `Start`.
 
 ## Fichiers à générer
@@ -20,8 +20,8 @@ module.Start();
 - [`src/gen/IModule.hpp`](src/gen/IModule.hpp)
 - [`src/gen/console_module.hpp`](src/gen/console_module.hpp), [`src/gen/console_module.cpp`](src/gen/console_module.cpp)
 - [`src/gen/main.cpp`](src/gen/main.cpp)
-- [`src/gen/test_module.hpp`](src/gen/test_module.hpp), [`src/gen/test_module.cpp`](src/gen/test_module.cpp)
-- [`src/gen/example1_test.cpp`](src/gen/example1_test.cpp)
+- [`tests/gen/test_module.hpp`](tests/gen/test_module.hpp), [`tests/gen/test_module.cpp`](tests/gen/test_module.cpp)
+- [`tests/gen/example1_test.cpp`](tests/gen/example1_test.cpp)
 
 ## Fichiers à copier
 

@@ -1,5 +1,11 @@
 add_executable(json_test_tests
-  ../src/gen/example1_test.cpp
+  gen/example1_test.cpp
+  gen/test_module.cpp
+)
+
+target_include_directories(json_test_tests
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/gen
 )
 
 target_link_libraries(json_test_tests

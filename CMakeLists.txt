@@ -42,7 +42,6 @@ enable_testing()
 add_library(json_test
   src/gen/console_module.cpp
   src/device_logic.cpp
-  src/gen/test_module.cpp
   libs/timer/Timer.cpp
 )
 

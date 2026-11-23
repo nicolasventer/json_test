@@ -768,5 +768,5 @@ if (import.meta.main) {
 		.render(tpl, view, undefined, { escape: (v) => v })
 		.replace(/\\\r?\n/g, "")
 		.replace(/\r?\n/g, "\r\n");
-	fs.writeFileSync(path.join(root, "src", "gen", "example1_test.cpp"), google_tests_content);
+	fs.writeFileSync(path.join(root, "tests", "gen", "example1_test.cpp"), google_tests_content);
 }

@@ -58,6 +58,35 @@
         ["reset_expect"],
         ["expect_not_send", "/device/can_message/status", { "id": "ALARM" }]
       ]
+    },
+    {
+      "name": "Sondes et seuils",
+      "steps": [
+        ["reset_expect"],
+        ["receive", "/device/config/status", {
+          "$comment": "Sonde de température et deux seuils",
+          "interval_ms": 100,
+          "threshold": 30.5,
+          "probe": { "kind": "TEMP" },
+          "limits": [
+            { "level": "WARN", "value": 30.5 },
+            { "level": "FAULT", "value": 40 }
+          ]
+        }],
+        ["receive", "/device/cmd/command", { "value": "START" }],
+        ["sleep_ms", 100],
+        ["expect_send", "/device/measure/status", {
+          "$comment": "Les deux seuils sont présents, dans un autre ordre",
+          "temperature": [">=", 20],
+          "samples": ["contains", [
+            { "level": "FAULT", "value": ["~=", 40, 0.1] },
+            { "level": "WARN", "value": [">=", 30] }
+          ]]
+        }],
+        ["expect_send", "/device/measure/status", {
+          "samples": ["not_contains", [ { "level": "INFO" } ]]
+        }]
+      ]
     }
   ]
 }

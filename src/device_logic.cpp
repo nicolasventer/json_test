@@ -43,7 +43,7 @@ void DeviceLogic::onTick(int tick_ms) {
   if (processed_ticks_ == 1) {
     const double temperature = config_.threshold - 5.5;
     module_->sendDeviceStatusStatus(StatusStatus{RUNNING, tick_ms});
-    module_->sendDeviceMeasureStatus(MeasureStatus{temperature, 40});
+    module_->sendDeviceMeasureStatus(MeasureStatus{temperature, 40, config_.limits});
     return;
   }
 

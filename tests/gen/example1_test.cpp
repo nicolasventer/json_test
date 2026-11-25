@@ -2,6 +2,7 @@
 #include "Timer.hpp"
 #include "device_logic.hpp"
 #include "test_module.hpp"
+#include "utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -146,6 +147,41 @@ TEST_F(SuiteDispositif, TrameMoteur) {
   // { "id": "ALARM" }
   const CanMessageStatus* data_out_3 = module.expect.find_as<CanMessageStatus>(std::string("/device/can_message/status/") + std::to_string(512));
   EXPECT_EQ(data_out_3, nullptr) << "un message \"ALARM\" inattendu";
+}
+
+TEST_F(SuiteDispositif, SondesEtSeuils) {
+  module.expect.clear();
+
+  // Sonde de température et deux seuils
+  ConfigStatus data_in_1{};
+  data_in_1.interval_ms = 100;
+  data_in_1.threshold = 30.5;
+  data_in_1.probe.kind = EProbeKind::TEMP;
+  data_in_1.limits.resize(2);
+  data_in_1.limits[0].level = EAlarmLevel::WARN;
+  data_in_1.limits[0].value = 30.5;
+  data_in_1.limits[1].level = EAlarmLevel::FAULT;
+  data_in_1.limits[1].value = 40;
+  logic.onReceiveDeviceConfigStatus(data_in_1);
+
+  CmdCommand data_in_2{};
+  data_in_2.value = "START";
+  logic.onReceiveDeviceCmdCommand(data_in_2);
+
+  module.getTimer().sleep(std::chrono::milliseconds(100));
+
+  // Les deux seuils sont présents, dans un autre ordre
+  const MeasureStatus* data_out_1 = module.expect.find_as<MeasureStatus>("/device/measure/status");
+  ASSERT_NE(data_out_1, nullptr) << "aucun message \"/device/measure/status\" envoyé";
+  EXPECT_GE(data_out_1->temperature, 20);
+  EXPECT_CONTAINS(data_out_1->samples,
+    [](const auto& item) { return item.level == EAlarmLevel::FAULT && ABS_DIFF(item.value, 40) <= 0.1; },
+    [](const auto& item) { return item.level == EAlarmLevel::WARN && item.value >= 30; });
+
+  const MeasureStatus* data_out_2 = module.expect.find_as<MeasureStatus>("/device/measure/status");
+  ASSERT_NE(data_out_2, nullptr) << "aucun message \"/device/measure/status\" envoyé";
+  EXPECT_NOT_CONTAINS(data_out_2->samples,
+    [](const auto& item) { return item.level == EAlarmLevel::INFO; });
 }
 
 }  // namespace

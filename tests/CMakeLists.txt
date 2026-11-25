@@ -5,6 +5,7 @@ add_executable(json_test_tests
 
 target_include_directories(json_test_tests
   PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/gen
 )
 

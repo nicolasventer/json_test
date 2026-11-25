@@ -2,6 +2,7 @@
 #include "Timer.hpp"
 #include "device_logic.hpp"
 #include "test_module.hpp"
+#include "utils.hpp"
 
 #include <gtest/gtest.h>
 
@@ -44,7 +45,12 @@ TEST_F({{suite_class}}, {{method}}) {
 {{^is_can}}
   {{type_name}} {{var_name}}{};
 {{#fields}}
+{{#is_resize}}
+  {{var_name}}.{{path}}.resize({{value}});
+{{/is_resize}}
+{{^is_resize}}
   {{var_name}}.{{path}} = {{value}};
+{{/is_resize}}
 {{/fields}}
   logic.onReceive{{topic_pascal}}({{var_name}});
 {{/is_can}}
@@ -74,6 +80,10 @@ TEST_F({{suite_class}}, {{method}}) {
   EXPECT_{{operator}}({{var_name}}->{{path}}, {{value}});
 {{/epsilon}}
 {{/fields}}
+{{#vectors}}
+  EXPECT_{{#contains}}CONTAINS{{/contains}}{{^contains}}NOT_CONTAINS{{/contains}}({{var_name}}->{{path}}{{#elements}},
+    [](const auto& item) { return {{expr}}; }{{/elements}});
+{{/vectors}}
 {{/is_expect_send}}
 {{#is_expect_not_send}}
 {{#is_can}}

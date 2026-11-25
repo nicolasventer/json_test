@@ -1,8 +1,8 @@
 {
-	"ConfigStatus": { "topicList": ["/device/config/status"], "enumFieldMap": {} },
+	"ConfigStatus": { "topicList": ["/device/config/status"], "enumFieldMap": { "probe.kind": "EProbeKind", "limits.*.level": "EAlarmLevel" } },
 	"CmdCommand": { "topicList": ["/device/cmd/command"], "enumFieldMap": {} },
 	"StatusStatus": { "topicList": ["/device/status/status"], "enumFieldMap": { "status": "EStateStatus" } },
-	"MeasureStatus": { "topicList": ["/device/measure/status"], "enumFieldMap": {} },
+	"MeasureStatus": { "topicList": ["/device/measure/status"], "enumFieldMap": { "samples.*.level": "EAlarmLevel" } },
 	"AlarmStatus": { "topicList": ["/device/alarm/status"], "enumFieldMap": { "level": "EAlarmLevel" } },
 	"CanMessageCommand": { "topicList": ["/device/can_message/command"], "enumFieldMap": {}, "isCan": true },
 	"CanMessageStatus": { "topicList": ["/device/can_message/status"], "enumFieldMap": {}, "isCan": true }

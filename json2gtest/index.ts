@@ -44,6 +44,13 @@ type FieldView = {
 	operator: Operator;
 	epsilon: string;
 	integer_near: boolean;
+	is_resize: boolean;
+};
+
+type VectorView = {
+	path: string;
+	contains: boolean;
+	elements: Array<{ expr: string }>;
 };
 
 type CanView = {
@@ -70,6 +77,7 @@ type StepView = {
 	topic_key: string;
 	comment_lines: string[];
 	fields: FieldView[];
+	vectors: VectorView[];
 	can: CanView;
 };
 
@@ -173,10 +181,32 @@ function cppToken(value: any, where: string, enumType: string | undefined): { va
 	fail(`${where}: valeur invalide`);
 }
 
-// Builds a FieldView for a leaf or a comparator.
-// The enum type comes from the path in enumFieldMap; ~= fills epsilon.
-function toField(fieldPath: string, value: any, enumFieldMap: Record<string, string>, where: string): FieldView {
-	const enumType = enumFieldMap[fieldPath];
+// Resolves the enum type of a field path.
+// An exact key wins. Otherwise each numeric segment becomes *.
+function enumFor(fieldPath: string, enumFieldMap: Record<string, string>): string | undefined {
+	const exact = enumFieldMap[fieldPath];
+	if (exact !== undefined) return exact;
+	const starred = fieldPath
+		.split(".")
+		.map((segment) => (/^\d+$/.test(segment) ? "*" : segment))
+		.join(".");
+	return enumFieldMap[starred];
+}
+
+// Turns a logical path into a C++ member expression.
+// Numeric segments become subscripts: limits.0.level is limits[0].level.
+function cppMemberPath(fieldPath: string): string {
+	return fieldPath
+		.split(".")
+		.map((segment) => (/^\d+$/.test(segment) ? `[${segment}]` : segment))
+		.join(".")
+		.replace(/\.\[/g, "[");
+}
+
+// Reads a scalar leaf or a comparison operator.
+// The enum type comes from the logical path. ~= keeps its threshold.
+function readLeaf(fieldPath: string, value: any, enumFieldMap: Record<string, string>, where: string): Omit<FieldView, "path" | "is_resize"> {
+	const enumType = enumFor(fieldPath, enumFieldMap);
 	if (Array.isArray(value)) {
 		const op = value[0];
 		if (!isComparatorOp(op)) fail(`${where}: tableau inattendu`);
@@ -189,14 +219,85 @@ function toField(fieldPath: string, value: any, enumFieldMap: Record<string, str
 			}
 			const expected = cppToken(value[1], where, enumType);
 			const integerNear = !expected.isEnum && Number.isInteger(value[1]) && Number.isInteger(threshold);
-			return { path: fieldPath, value: expected.value, isEnum: expected.isEnum, operator, epsilon: String(threshold), integer_near: integerNear };
+			return { value: expected.value, isEnum: expected.isEnum, operator, epsilon: String(threshold), integer_near: integerNear };
 		}
 		if (value.length !== 2) fail(`${where}: ${op} attend une valeur`);
 		const token = cppToken(value[1], where, enumType);
-		return { path: fieldPath, value: token.value, isEnum: token.isEnum, operator, epsilon: "", integer_near: false };
+		return { value: token.value, isEnum: token.isEnum, operator, epsilon: "", integer_near: false };
 	}
 	const token = cppToken(value, where, enumType);
-	return { path: fieldPath, value: token.value, isEnum: token.isEnum, operator: "EQ", epsilon: "", integer_near: false };
+	return { value: token.value, isEnum: token.isEnum, operator: "EQ", epsilon: "", integer_near: false };
+}
+
+// Builds a FieldView for a leaf or a comparator.
+// The stored path is the C++ member expression.
+function toField(fieldPath: string, value: any, enumFieldMap: Record<string, string>, where: string): FieldView {
+	return { path: cppMemberPath(fieldPath), ...readLeaf(fieldPath, value, enumFieldMap, where), is_resize: false };
+}
+
+// Writes one comparison as a boolean expression.
+// ~= becomes ABS_DIFF(path, value) <= threshold.
+function cppExpr(cppPath: string, leaf: Omit<FieldView, "path" | "is_resize">): string {
+	switch (leaf.operator) {
+		case "EQ":
+			return `${cppPath} == ${leaf.value}`;
+		case "NE":
+			return `${cppPath} != ${leaf.value}`;
+		case "GT":
+			return `${cppPath} > ${leaf.value}`;
+		case "GE":
+			return `${cppPath} >= ${leaf.value}`;
+		case "LT":
+			return `${cppPath} < ${leaf.value}`;
+		case "LE":
+			return `${cppPath} <= ${leaf.value}`;
+		case "NEAR":
+			return `ABS_DIFF(${cppPath}, ${leaf.value}) <= ${leaf.epsilon}`;
+	}
+}
+
+// Accesses a field of a vector element from the lambda parameter.
+// The element path itself refers to item.
+function itemAccess(elementPath: string, fieldPath: string): string {
+	if (fieldPath === elementPath) return "item";
+	return `item.${cppMemberPath(fieldPath.slice(elementPath.length + 1))}`;
+}
+
+// Recognizes contains or not_contains.
+// Any other array is left to the caller.
+function vectorKind(value: any, where: string): "contains" | "not_contains" | undefined {
+	if (!Array.isArray(value) || value.length === 0) return undefined;
+	const op = value[0];
+	if (op !== "contains" && op !== "not_contains") return undefined;
+	if (value.length !== 2 || !Array.isArray(value[1])) fail(`${where}: ${op} attend un tableau`);
+	return op;
+}
+
+// Builds the predicate of one vector element.
+// An object becomes the conjunction of its leaves. A nested vector is rejected.
+function elementExpr(element: any, elementPath: string, enumFieldMap: Record<string, string>, where: string): string {
+	if (isPlainObject(element)) {
+		const parts: string[] = [];
+		const walk = (node: Record<string, any>, prefix: string): void => {
+			for (const [key, child] of Object.entries(node)) {
+				if (key === "$comment") fail(`${where}: "$comment" n'est pas admis dans un objet imbriqué`);
+				const fieldPath = `${prefix}.${key}`;
+				if (isPlainObject(child)) {
+					walk(child, fieldPath);
+					continue;
+				}
+				if (Array.isArray(child) && !isComparatorOp(child[0])) fail(`${where}: vecteur dans un élément de vecteur`);
+				parts.push(cppExpr(itemAccess(elementPath, fieldPath), readLeaf(fieldPath, child, enumFieldMap, where)));
+			}
+		};
+		walk(element, elementPath);
+		return parts.length === 0 ? "true" : parts.join(" && ");
+	}
+	if (Array.isArray(element)) {
+		if (!isComparatorOp(element[0])) fail(`${where}: vecteur dans un élément de vecteur`);
+		return cppExpr("item", readLeaf(elementPath, element, enumFieldMap, where));
+	}
+	return cppExpr("item", readLeaf(elementPath, element, enumFieldMap, where));
 }
 
 // Reads $comment on the root data object.
@@ -214,11 +315,13 @@ function commentLines(value: any, where: string): string[] {
 }
 
 // Walks the data object of a receive or an expect_send.
+// assign is true for receive: a JSON array is a vector of exact values.
 // Skips a root $comment. A $comment inside a nested object is an error.
-function collectFields(value: any, enumFieldMap: Record<string, string>, where: string): FieldView[] {
+function collectFields(value: any, enumFieldMap: Record<string, string>, where: string, assign: boolean): { fields: FieldView[]; vectors: VectorView[] } {
 	if (!isPlainObject(value)) fail(`${where}: objet attendu`);
 	const fields: FieldView[] = [];
-	const walk = (node: Record<string, any>, prefix: string): void => {
+	const vectors: VectorView[] = [];
+	const walk = (node: Record<string, any>, prefix: string, inVector: boolean): void => {
 		for (const [key, child] of Object.entries(node)) {
 			if (key === "$comment") {
 				if (prefix.length > 0) fail(`${where}: "$comment" n'est pas admis dans un objet imbriqué`);
@@ -226,12 +329,57 @@ function collectFields(value: any, enumFieldMap: Record<string, string>, where: 
 				continue;
 			}
 			const fieldPath = prefix.length === 0 ? key : `${prefix}.${key}`;
-			if (isPlainObject(child)) walk(child, fieldPath);
-			else fields.push(toField(fieldPath, child, enumFieldMap, where));
+			const fieldWhere = `${where}: "${fieldPath}"`;
+			if (isPlainObject(child)) {
+				walk(child, fieldPath, inVector);
+				continue;
+			}
+			if (Array.isArray(child)) {
+				const kind = vectorKind(child, fieldWhere);
+				if (kind !== undefined) {
+					if (assign) fail(`${fieldWhere}: ${kind} n'est pas admis dans un receive`);
+					if (inVector) fail(`${fieldWhere}: vecteur dans un élément de vecteur`);
+					const elements = child[1] as any[];
+					vectors.push({
+						path: cppMemberPath(fieldPath),
+						contains: kind === "contains",
+						elements: elements.map((element, index) => ({
+							expr: elementExpr(element, `${fieldPath}.${index}`, enumFieldMap, `${fieldWhere}[${index}]`),
+						})),
+					});
+					continue;
+				}
+				if (!isComparatorOp(child[0])) {
+					if (!assign) fail(`${fieldWhere}: contains ou not_contains attendu`);
+					if (inVector) fail(`${fieldWhere}: vecteur dans un élément de vecteur`);
+					fields.push({
+						path: cppMemberPath(fieldPath),
+						value: String(child.length),
+						isEnum: false,
+						operator: "EQ",
+						epsilon: "",
+						integer_near: false,
+						is_resize: true,
+					});
+					child.forEach((element: any, index: number) => {
+						const elementPath = `${fieldPath}.${index}`;
+						const elementWhere = `${fieldWhere}[${index}]`;
+						if (isPlainObject(element)) {
+							walk(element, elementPath, true);
+							return;
+						}
+						if (Array.isArray(element)) fail(`${elementWhere}: vecteur dans un élément de vecteur`);
+						fields.push(toField(elementPath, element, enumFieldMap, elementWhere));
+					});
+					continue;
+				}
+				if (inVector) fail(`${fieldWhere}: valeur exacte attendue`);
+			}
+			fields.push(toField(fieldPath, child, enumFieldMap, fieldWhere));
 		}
 	};
-	walk(value, "");
-	return fields;
+	walk(value, "", false);
+	return { fields, vectors };
 }
 
 // Validates a step and keeps its payload as any.
@@ -310,12 +458,19 @@ function asTypeCatalog(value: any): TypeCatalog {
 		}
 		const enumFieldMap: Record<string, string> = {};
 		for (const [fieldPath, enumType] of Object.entries(info.enumFieldMap)) {
-			if (typeof enumType !== "string") fail(`types.json: enum de "${typeName}.${fieldPath}" invalide`);
+			if (typeof enumType !== "string" || !isEnumKey(fieldPath)) fail(`types.json: enum de "${typeName}.${fieldPath}" invalide`);
 			enumFieldMap[fieldPath] = enumType;
 		}
 		catalog[typeName] = { topicList: info.topicList, enumFieldMap, isCan };
 	}
 	return catalog;
+}
+
+// Checks an enumFieldMap key.
+// Each segment is an identifier, an index, or *.
+function isEnumKey(fieldPath: string): boolean {
+	if (fieldPath.length === 0) return false;
+	return fieldPath.split(".").every((segment) => segment === "*" || /^\d+$/.test(segment) || /^[A-Za-z_][A-Za-z0-9_]*$/.test(segment));
 }
 
 // Resolves a topic to its message type.
@@ -522,6 +677,7 @@ function expectPayload(
 			operator: idCmp.operator,
 			epsilon: idCmp.epsilon === undefined ? "" : epsilonLiteral(idCmp.epsilon, "u"),
 			integer_near: idCmp.epsilon !== undefined,
+			is_resize: false,
 		},
 		{
 			path: "data",
@@ -530,6 +686,7 @@ function expectPayload(
 			operator: dataCmp.operator,
 			epsilon: dataCmp.epsilon === undefined ? "" : epsilonLiteral(dataCmp.epsilon, "ULL"),
 			integer_near: dataCmp.epsilon !== undefined,
+			is_resize: false,
 		},
 	];
 	return {
@@ -642,6 +799,7 @@ function emptyStep(blankBeforeStep: boolean): StepView {
 		topic_key: "",
 		comment_lines: [],
 		fields: [],
+		vectors: [],
 		can: emptyCan(),
 	};
 }
@@ -692,7 +850,7 @@ function toStepView(
 				return view;
 			}
 			view.comment_lines = commentLines(step[2], where);
-			view.fields = collectFields(step[2], info.enumFieldMap, where);
+			view.fields = collectFields(step[2], info.enumFieldMap, where, true).fields;
 			return view;
 		}
 		case "expect_send": {
@@ -710,7 +868,9 @@ function toStepView(
 			}
 			view.topic_key = step[1];
 			view.comment_lines = commentLines(step[2], where);
-			view.fields = collectFields(step[2], info.enumFieldMap, where);
+			const collected = collectFields(step[2], info.enumFieldMap, where, false);
+			view.fields = collected.fields;
+			view.vectors = collected.vectors;
 			return view;
 		}
 		case "expect_not_send": {

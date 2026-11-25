@@ -95,6 +95,34 @@ Exemple :
 ["expect_send", "response", { "$comment": "Le dispositif a démarré", "status": "OK" }]
 ```
 
+### 4.3 Listes
+
+Un champ peut être une liste.
+
+Dans `receive`, la liste s'écrit par ses éléments, dans l'ordre des cases. Chaque élément est une valeur exacte, scalaire ou objet.
+
+```json
+["receive", "config", { "probe": { "kind": "TEMP" }, "limits": [{ "level": "WARN", "value": 30.5 }, { "level": "FAULT", "value": 40 }] }]
+```
+
+Dans `expect_send`, la liste s'écrit avec `contains` ou `not_contains`. L'opérateur `=` reste celui des scalaires, décrit à la section 5.2.
+
+`contains` vérifie que chaque élément listé correspond à un élément réel distinct. L'ordre n'est pas lu. Un objet listé suit la comparaison partielle de la section 5.1 : les champs en plus de l'élément réel sont admis, et les opérateurs de la section 5.2 s'appliquent à ses feuilles. Les éléments réels en plus sont admis. Un élément réel ne sert qu'une fois. `["contains", []]` réussit.
+
+`not_contains` vérifie qu'aucun élément listé n'est présent. La comparaison des objets est la même. `["not_contains", []]` réussit.
+
+```json
+["expect_send", "measure", { "samples": ["contains", [{ "level": "FAULT", "value": ["~=", 40, 0.1] }, { "level": "WARN", "value": [">=", 30] }]] }]
+```
+
+```json
+["expect_send", "measure", { "samples": ["not_contains", [{ "level": "INFO" }]] }]
+```
+
+Une liste dans un élément de liste n'est pas admise.
+
+Le nom d'enum d'un champ est associé à son chemin. Un objet imbriqué se note avec des points : `probe.kind`. Dans une liste, l'index se note `*` : `limits.*.level`. Cette clé couvre chaque case. Une clé qui nomme un index précis prime sur la clé étoilée.
+
 ## 5. Vérifications
 
 ### 5.1 Comparaison partielle
@@ -271,7 +299,15 @@ Les étapes d'un test s'exécutent selon les règles suivantes :
 
 ## 10. Règles d'écriture
 
-Une suite est invalide lorsqu'un champ est absent, qu'un mot-clé est inconnu, que le nombre d'arguments d'une étape est incorrect, qu'un opérateur de comparaison est invalide, qu'un type de valeur est incompatible ou que `$comment` n'est pas une chaîne.
+Une suite est invalide lorsque :
+
+- un champ est absent ;
+- un mot-clé est inconnu ;
+- le nombre d'arguments d'une étape est incorrect ;
+- un opérateur de comparaison est invalide ;
+- un type de valeur est incompatible ;
+- `$comment` n'est pas une chaîne ;
+- une liste contient une liste.
 
 ## 11. Cas particuliers
 
